@@ -7,5 +7,8 @@ setup(
     author="effusiveperiscope",
     description = (""),
     license="MIT",
-    packages=find_packages(exclude=['tests'])
+    packages=find_packages(exclude=['tests']),
+    package_data={
+        'svc_helper': ['svc/rvc/configs/**/*.json']
+    }
 )
