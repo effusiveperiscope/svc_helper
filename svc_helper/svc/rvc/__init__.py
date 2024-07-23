@@ -12,6 +12,7 @@ def find_adjacent_index(model_path):
     return index_search[0]
 
 class RVCModel:
+    expected_sample_rate = 16000
     def __init__(self):
         lib_dir = os.path.dirname(os.path.abspath(__file__))
         config = Config(lib_dir)
@@ -44,7 +45,8 @@ class RVCModel:
         resample_sr=0,
         rms_mix_rate=1,
         protect=0.33,
-        feature_transform=None):
+        feature_transform=None,
+        target_pitch=None):
         status, (tgt_sr, wav_opt) = self.vc.vc_single(
             sid=0,
             input_audio_path=input_path,
@@ -58,6 +60,40 @@ class RVCModel:
             resample_sr=resample_sr,
             rms_mix_rate=rms_mix_rate,
             protect=protect,
-            feature_transform=feature_transform
+            feature_transform=feature_transform,
+            target_pitch=target_pitch
+        )
+        return wav_opt
+
+    """
+    Version of infer that works with audio data in memory
+    """
+    def infer_audio(self,
+        input_audio,
+        transpose=0,
+        f0_file=None,
+        f0_method='rmvpe',
+        index_rate=0.0,
+        filter_radius=3,
+        resample_sr=0,
+        rms_mix_rate=1,
+        protect=0.33,
+        feature_transform=None,
+        target_pitch=None):
+        status, (tgt_sr, wav_opt) = self.vc.vc_audio(
+            sid=0,
+            input_audio_array=input_audio,
+            f0_up_key=transpose,
+            f0_file=f0_file,
+            f0_method=f0_method,
+            file_index=self.index_path,
+            file_index2=self.index_path,
+            index_rate=index_rate,
+            filter_radius=filter_radius,
+            resample_sr=resample_sr,
+            rms_mix_rate=rms_mix_rate,
+            protect=protect,
+            feature_transform=feature_transform,
+            target_pitch=target_pitch
         )
         return wav_opt

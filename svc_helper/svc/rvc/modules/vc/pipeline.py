@@ -91,6 +91,7 @@ class Pipeline(object):
         f0_method,
         filter_radius,
         inp_f0=None,
+        target_f0_mean=None
     ):
         global input_audio_path2wav
         time_step = self.window / self.sr * 1000
@@ -115,6 +116,8 @@ class Pipeline(object):
                     f0, [[pad_size, p_len - len(f0) - pad_size]], mode="constant"
                 )
         elif f0_method == "harvest":
+            if input_audio_path is None:
+                raise ValueError('Null input_audio_path not supported with harvest')
             input_audio_path2wav[input_audio_path] = x.astype(np.double)
             f0 = cache_harvest_f0(input_audio_path, self.sr, f0_max, f0_min, 10)
             if filter_radius > 2:
@@ -163,6 +166,9 @@ class Pipeline(object):
             f0 = x
 
         f0 *= pow(2, f0_up_key / 12)
+        if target_f0_mean is not None:
+            cur_mean = (f0[f0 != 0]).mean()
+            f0 *= target_f0_mean / cur_mean
         # with open("test.txt","w")as f:f.write("\n".join([str(i)for i in f0.tolist()]))
         tf0 = self.sr // self.window  # 每秒f0点数
         if inp_f0 is not None:
@@ -388,7 +394,8 @@ class Pipeline(object):
         version,
         protect,
         f0_file=None,
-        feature_override=None
+        feature_override=None,
+        target_f0_mean=None
     ):
         if (
             file_index != ""
@@ -450,6 +457,7 @@ class Pipeline(object):
                 f0_method,
                 filter_radius,
                 inp_f0,
+                target_f0_mean=target_f0_mean
             )
             pitch = pitch[:p_len]
             pitchf = pitchf[:p_len]
@@ -604,6 +612,7 @@ class Pipeline(object):
                 "forward",
                 filter_radius,
                 inp_f0,
+                target_f0_mean=target_pitch
             )
             pitch = pitch[:p_len]
             pitchf = pitchf[:p_len]

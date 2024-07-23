@@ -20,7 +20,6 @@ def test_rvc():
         index_path = test_index_path)
 
     wav_opt = rvc_model.infer_file(input_path, transpose=12)
-    print(wav_opt)
     if OUTPUT_FILES:
         sf.write('tests/test_rvc_output_1.wav', wav_opt,
             rvc_model.output_sample_rate())
@@ -36,4 +35,18 @@ def test_rvc():
         feature_transform=lambda t: t + torch.randn_like(t)*0.5)
     if OUTPUT_FILES:
         sf.write('tests/test_rvc_output_2.wav', wav_opt,
+            rvc_model.output_sample_rate())
+
+    # Test pitch targeting
+    wav_opt = rvc_model.infer_file(input_path, transpose=0,
+        target_pitch=400)
+    if OUTPUT_FILES:
+        sf.write('tests/test_rvc_output_3.wav', wav_opt,
+            rvc_model.output_sample_rate())
+
+    # Test from audio
+    audio, _ = librosa.load(input_path, sr=rvc_model.expected_sample_rate)
+    wav_opt = rvc_model.infer_file(input_path, transpose=12)
+    if OUTPUT_FILES:
+        sf.write('tests/test_rvc_output_4.wav', wav_opt,
             rvc_model.output_sample_rate())

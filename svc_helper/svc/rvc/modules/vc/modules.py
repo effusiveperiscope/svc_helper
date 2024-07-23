@@ -141,6 +141,89 @@ class VC:
             else {"visible": True, "maximum": n_spk, "__type__": "update"}
         )
 
+    """ Note - assumes SR = 16000 """
+    def vc_audio(
+        self,
+        sid,
+        input_audio_array, # assumed SR = 16000
+        f0_up_key,
+        f0_file,
+        f0_method,
+        file_index,
+        file_index2,
+        index_rate,
+        filter_radius,
+        resample_sr,
+        rms_mix_rate,
+        protect,
+        feature_transform,
+        target_pitch
+    ):
+        f0_up_key = int(f0_up_key)
+        try:
+            audio = input_audio_array
+            audio_max = np.abs(audio).max() / 0.95
+            if audio_max > 1:
+                audio /= audio_max
+            times = [0, 0, 0]
+
+            if self.hubert_model is None:
+                self.hubert_model = load_hubert(self.config)
+
+            file_index = (
+                (
+                    file_index.strip(" ")
+                    .strip('"')
+                    .strip("\n")
+                    .strip('"')
+                    .strip(" ")
+                    .replace("trained", "added")
+                )
+                if file_index != ""
+                else file_index2
+            )  # 防止小白写错，自动帮他替换掉
+
+            audio_opt = self.pipeline.pipeline(
+                self.hubert_model,
+                self.net_g,
+                sid,
+                audio,
+                None, # input_audio_path
+                times,
+                f0_up_key,
+                f0_method,
+                file_index,
+                index_rate,
+                self.if_f0,
+                filter_radius,
+                self.tgt_sr,
+                resample_sr,
+                rms_mix_rate,
+                self.version,
+                protect,
+                f0_file,
+                feature_transform,
+                target_f0_mean=target_pitch
+            )
+            if self.tgt_sr != resample_sr >= 16000:
+                tgt_sr = resample_sr
+            else:
+                tgt_sr = self.tgt_sr
+            index_info = (
+                "Index:\n%s." % file_index
+                if os.path.exists(file_index)
+                else "Index not used."
+            )
+            return (
+                "Success.\n%s\nTime:\nnpy: %.2fs, f0: %.2fs, infer: %.2fs."
+                % (index_info, *times),
+                (tgt_sr, audio_opt),
+            )
+        except:
+            info = traceback.format_exc()
+            logger.warning(info)
+            return info, (None, None)
+
     def vc_single(
         self,
         sid,
@@ -155,7 +238,8 @@ class VC:
         resample_sr,
         rms_mix_rate,
         protect,
-        feature_transform
+        feature_transform,
+        target_pitch=None
     ):
         if input_audio_path is None:
             return "You need to upload an audio", None
@@ -202,7 +286,8 @@ class VC:
                 self.version,
                 protect,
                 f0_file,
-                feature_transform
+                feature_transform,
+                target_f0_mean=target_pitch
             )
             if self.tgt_sr != resample_sr >= 16000:
                 tgt_sr = resample_sr
