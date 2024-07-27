@@ -436,7 +436,7 @@ class Pipeline(object):
         t = None
         t1 = ttime()
         audio_pad = np.pad(audio, (self.t_pad, self.t_pad), mode="reflect")
-        sf.write('test_audio_pad.wav', audio_pad, samplerate=16000)
+        #sf.write('test_audio_pad.wav', audio_pad, samplerate=16000)
 
         p_len = audio_pad.shape[0] // self.window
         inp_f0 = None
