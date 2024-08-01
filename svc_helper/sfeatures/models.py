@@ -96,6 +96,7 @@ class SVC5WhisperModel:
         if feats.dim() == 2: # stereo
             feats = feats.mean(-1)
         assert feats.dim() == 1, feats.dim()
+        feats = feats.float()
         audln = audio.shape[0]
         ppgln = audln // 320
         feats = pad_or_trim(feats)
