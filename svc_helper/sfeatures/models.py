@@ -6,15 +6,20 @@ import numpy as np
 import torch
 bh, ah = signal.butter(N=5, Wn=48, btype="high", fs=16000)
 
+from svc_helper.sfeatures.whisper.audio import (
+    SAMPLE_RATE as SVC5W_SAMPLE_RATE, pad_or_trim, load_audio,
+    log_mel_spectrogram)
+from svc_helper.sfeatures.whisper.model import Whisper, ModelDimensions
+
 class RVCHubertModel:
     expected_sample_rate = 16000
     def __init__(self, device = torch.device('cpu'), **kwargs):
-        rvc_hubert_path = hf_hub_download(
-            repo_id='therealvul/svc_helper', filename='rvc_hubert.pt')
+        rvc_hubert_path = kwargs.get('rvc_hubert_path', hf_hub_download(
+            repo_id='therealvul/svc_helper', filename='rvc_hubert.pt'))
 
         models, saved_cfg, _ = checkpoint_utils.load_model_ensemble_and_task(
             [rvc_hubert_path], suffix='')
-        print('normalize:',saved_cfg.task.normalize)
+        #print('normalize:',saved_cfg.task.normalize)
         model = models[0]
         model = model.to(device)
         for param in model.parameters():
@@ -65,3 +70,37 @@ class RVCHubertModel:
             feats = self.model.final_proj(logits[0]) if version == "v1" else logits[0]
 
         return feats
+
+class SVC5WhisperModel:
+    expected_sample_rate = SVC5W_SAMPLE_RATE
+    def __init__(self, device = torch.device('cpu'), **kwargs):
+        whisper_path = kwargs.get('whisper_path',
+            hf_hub_download(repo_id='therealvul/svc_helper',
+                filename='svc5_whisper_large-v2.pt'))
+
+        checkpoint = torch.load(whisper_path, map_location='cpu')
+        dims = ModelDimensions(**checkpoint['dims'])
+        model = Whisper(dims)
+        del model.decoder
+        cut = len(model.encoder.blocks) // 4
+        cut = -1 * cut
+        del model.encoder.blocks[cut:]
+        model.load_state_dict(checkpoint["model_state_dict"], strict=False)
+        model.eval()
+        model.to(device)
+        self.model = model
+        self.device = device
+
+    def extract_features(self, audio: torch.Tensor, **kwargs):
+        feats = audio
+        if feats.dim() == 2: # stereo
+            feats = feats.mean(-1)
+        assert feats.dim() == 1, feats.dim()
+        audln = audio.shape[0]
+        ppgln = audln // 320
+        feats = pad_or_trim(feats)
+        mel = log_mel_spectrogram(feats).to(self.device)
+        with torch.no_grad():
+            ppg = self.model.encoder(mel.unsqueeze(0)).squeeze().data.cpu().float()
+            ppg = ppg[:ppgln,]
+        return ppg
