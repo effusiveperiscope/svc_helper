@@ -156,8 +156,8 @@ class VC:
         resample_sr,
         rms_mix_rate,
         protect,
-        feature_transform,
-        target_pitch
+        extra_hooks={},
+        target_pitch=None,
     ):
         f0_up_key = int(f0_up_key)
         try:
@@ -202,7 +202,7 @@ class VC:
                 self.version,
                 protect,
                 f0_file,
-                feature_transform,
+                extra_hooks,
                 target_f0_mean=target_pitch
             )
             if self.tgt_sr != resample_sr >= 16000:
@@ -238,7 +238,7 @@ class VC:
         resample_sr,
         rms_mix_rate,
         protect,
-        feature_transform,
+        extra_hooks={},
         target_pitch=None
     ):
         if input_audio_path is None:
@@ -286,7 +286,7 @@ class VC:
                 self.version,
                 protect,
                 f0_file,
-                feature_transform,
+                extra_hooks,
                 target_f0_mean=target_pitch
             )
             if self.tgt_sr != resample_sr >= 16000:

@@ -32,7 +32,8 @@ def test_rvc():
 
     # Add random noise
     wav_opt = rvc_model.infer_file(input_path, transpose=12,
-        feature_transform=lambda t: t + torch.randn_like(t)*0.5)
+        extra_hooks={
+        'feature_transform': lambda t: t + torch.randn_like(t)*0.5})
     if OUTPUT_FILES:
         sf.write('tests/test_rvc_output_2.wav', wav_opt,
             rvc_model.output_sample_rate())

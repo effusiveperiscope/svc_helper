@@ -208,7 +208,7 @@ class Pipeline(object):
         index_rate,
         version,
         protect,
-        feature_transform=None
+        extra_hooks
     ):  # ,file_index,file_big_npy
         feats = torch.from_numpy(audio0)
         if self.is_half:
@@ -231,7 +231,8 @@ class Pipeline(object):
         with torch.no_grad():
             logits = model.extract_features(**inputs)
             feats = model.final_proj(logits[0]) if version == "v1" else logits[0]
-        if feature_transform is not None:
+        if extra_hooks.get('feature_transform') is not None:
+            feature_transform = extra_hooks.get('feature_transform')
             feats = feature_transform(feats)
 
         if self.is_half:
@@ -396,7 +397,7 @@ class Pipeline(object):
         version,
         protect,
         f0_file=None,
-        feature_override=None,
+        extra_hooks={},
         target_f0_mean=None
     ):
         if (
@@ -488,7 +489,7 @@ class Pipeline(object):
                         index_rate,
                         version,
                         protect,
-                        feature_override
+                        extra_hooks
                     )[self.t_pad_tgt : -self.t_pad_tgt]
                 )
             else:
@@ -506,7 +507,7 @@ class Pipeline(object):
                         index_rate,
                         version,
                         protect,
-                        feature_override
+                        extra_hooks
                     )[self.t_pad_tgt : -self.t_pad_tgt]
                 )
             s = t
@@ -525,7 +526,7 @@ class Pipeline(object):
                     index_rate,
                     version,
                     protect,
-                    feature_override
+                    extra_hooks
                 )[self.t_pad_tgt : -self.t_pad_tgt]
             )
         else:
@@ -543,6 +544,7 @@ class Pipeline(object):
                     index_rate,
                     version,
                     protect,
+                    extra_hooks
                 )[self.t_pad_tgt : -self.t_pad_tgt]
             )
         audio_opt = np.concatenate(audio_opt)
@@ -577,7 +579,7 @@ class Pipeline(object):
         version,
         protect,
         f0_file=None,
-        feature_transform=None
+        extra_hooks={},
     ):
         if (
             file_index != ""

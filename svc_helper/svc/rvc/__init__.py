@@ -45,7 +45,7 @@ class RVCModel:
         resample_sr=0,
         rms_mix_rate=1,
         protect=0.33,
-        feature_transform=None,
+        extra_hooks={},
         target_pitch=None):
         status, (tgt_sr, wav_opt) = self.vc.vc_single(
             sid=0,
@@ -60,7 +60,7 @@ class RVCModel:
             resample_sr=resample_sr,
             rms_mix_rate=rms_mix_rate,
             protect=protect,
-            feature_transform=feature_transform,
+            extra_hooks=extra_hooks,
             target_pitch=target_pitch
         )
         return wav_opt
@@ -78,7 +78,7 @@ class RVCModel:
         resample_sr=0,
         rms_mix_rate=1,
         protect=0.33,
-        feature_transform=None,
+        extra_hooks={},
         target_pitch=None):
         status, (tgt_sr, wav_opt) = self.vc.vc_audio(
             sid=0,
@@ -93,7 +93,7 @@ class RVCModel:
             resample_sr=resample_sr,
             rms_mix_rate=rms_mix_rate,
             protect=protect,
-            feature_transform=feature_transform,
+            extra_hooks=extra_hooks,
             target_pitch=target_pitch
         )
         return wav_opt
