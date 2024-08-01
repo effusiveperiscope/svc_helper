@@ -31,8 +31,11 @@ class RVCModel:
         return self.vc.tgt_sr
 
     """
-    feature_transform is a function accepting the features tensor
-    allowing you to transform features inplace
+    extra hooks is a dict containing optional hooks:
+        'feature_transform' is a function accepting the features tensor
+        allowing you to transform features inplace
+        'feature_override' accepts the padded audio input in RVC to
+        output replacement features
 
     All other settings are as used in RVC """
     def infer_file(self,

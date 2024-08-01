@@ -24,12 +24,6 @@ def test_rvc():
         sf.write('tests/test_rvc_output_1.wav', wav_opt,
             rvc_model.output_sample_rate())
 
-    # Try feature replacement
-    # data, rate = librosa.load('tests/test_speech.wav',
-    #     sr=RVCHubertModel.expected_sample_rate)
-    # rvc_hubert = RVCHubertModel()
-    # feat = rvc_hubert.extract_features(torch.from_numpy(data))
-
     # Add random noise
     wav_opt = rvc_model.infer_file(input_path, transpose=12,
         extra_hooks={
@@ -50,4 +44,15 @@ def test_rvc():
     wav_opt = rvc_model.infer_file(input_path, transpose=12)
     if OUTPUT_FILES:
         sf.write('tests/test_rvc_output_4.wav', wav_opt,
+            rvc_model.output_sample_rate())
+
+    # Test override
+    data, rate = librosa.load('tests/test_speech.wav',
+        sr=RVCHubertModel.expected_sample_rate)
+    rvc_hubert = RVCHubertModel()
+    wav_opt = rvc_model.infer_file(input_path, transpose=12,
+        extra_hooks={'feature_override':
+            lambda aud: rvc_hubert.extract_features(aud)})
+    if OUTPUT_FILES:
+        sf.write('tests/test_rvc_output_5.wav', wav_opt,
             rvc_model.output_sample_rate())

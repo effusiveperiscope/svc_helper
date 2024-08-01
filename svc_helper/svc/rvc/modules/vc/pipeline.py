@@ -211,29 +211,34 @@ class Pipeline(object):
         extra_hooks
     ):  # ,file_index,file_big_npy
         feats = torch.from_numpy(audio0)
-        if self.is_half:
-            feats = feats.half()
-        else:
-            feats = feats.float()
-        if feats.dim() == 2:  # double channels
-            feats = feats.mean(-1)
-        assert feats.dim() == 1, feats.dim()
-        feats = feats.view(1, -1)
-        padding_mask = torch.BoolTensor(feats.shape).to(self.device).fill_(False)
-
         t0 = ttime()
-        #print(feats.shape)
-        inputs = {
-            "source": feats.to(self.device),
-            "padding_mask": padding_mask,
-            "output_layer": 9 if version == "v1" else 12,
-        }
-        with torch.no_grad():
-            logits = model.extract_features(**inputs)
-            feats = model.final_proj(logits[0]) if version == "v1" else logits[0]
-        if extra_hooks.get('feature_transform') is not None:
-            feature_transform = extra_hooks.get('feature_transform')
-            feats = feature_transform(feats)
+        if extra_hooks.get('feature_override') is None:
+            if self.is_half:
+                feats = feats.half()
+            else:
+                feats = feats.float()
+            if feats.dim() == 2:  # double channels
+                feats = feats.mean(-1)
+            assert feats.dim() == 1, feats.dim()
+            feats = feats.view(1, -1)
+            padding_mask = torch.BoolTensor(feats.shape).to(self.device).fill_(False)
+
+            #print(feats.shape)
+            inputs = {
+                "source": feats.to(self.device),
+                "padding_mask": padding_mask,
+                "output_layer": 9 if version == "v1" else 12,
+            }
+            with torch.no_grad():
+                logits = model.extract_features(**inputs)
+                feats = model.final_proj(logits[0]) if version == "v1" else logits[0]
+            if extra_hooks.get('feature_transform') is not None:
+                feature_transform = extra_hooks.get('feature_transform')
+                feats = feature_transform(feats)
+            del padding_mask
+        else:
+            feature_override = extra_hooks.get('feature_override')
+            feats = feature_override(feats).to(self.device) # Pass in the padded audio
 
         if self.is_half:
             feats = feats.half()
@@ -292,7 +297,7 @@ class Pipeline(object):
             arg = (feats, p_len, pitch, pitchf, sid) if hasp else (feats, p_len, sid)
             audio1 = (net_g.infer(*arg)[0][0, 0]).data.cpu().float().numpy()
             del hasp, arg
-        del feats, p_len, padding_mask
+        del feats, p_len
         if torch.cuda.is_available():
             torch.cuda.empty_cache()
         t2 = ttime()
