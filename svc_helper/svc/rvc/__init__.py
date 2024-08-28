@@ -33,14 +33,6 @@ class RVCModel:
     def output_sample_rate(self):
         return self.vc.tgt_sr
 
-    """
-    extra hooks is a dict containing optional hooks:
-        'feature_transform' is a function accepting the features tensor
-        allowing you to transform features inplace
-        'feature_override' accepts the padded audio input in RVC to
-        output replacement features
-
-    All other settings are as used in RVC """
     def infer_file(self,
         input_path,
         transpose=0,
@@ -53,6 +45,14 @@ class RVCModel:
         protect=0.33,
         extra_hooks={},
         target_pitch=None):
+        """
+        extra hooks is a dict containing optional hooks:
+            'feature_transform' is a function accepting the features tensor
+            allowing you to transform features inplace
+            'feature_override' accepts the padded audio input in RVC to
+            output replacement features
+
+        All other settings are as used in RVC """
         status, (tgt_sr, wav_opt) = self.vc.vc_single(
             sid=0,
             input_audio_path=input_path,
@@ -71,9 +71,6 @@ class RVCModel:
         )
         return wav_opt
 
-    """
-    Version of infer that works with audio data in memory
-    """
     def infer_audio(self,
         input_audio,
         transpose=0,
@@ -86,6 +83,9 @@ class RVCModel:
         protect=0.33,
         extra_hooks={},
         target_pitch=None):
+        """
+        Version of infer that works with audio data in memory
+        """
         status, (tgt_sr, wav_opt) = self.vc.vc_audio(
             sid=0,
             input_audio_array=input_audio,
@@ -107,10 +107,10 @@ class RVCModel:
     def check_initialized(self):
         return self.vc.pipeline is not None and self.vc.net_g is not None
 
-    """
-    Perform RVC f0 transformations on an existing pitch curve
-    """
     def f0_transform(self, f0, f0_up_key=0):
+        """
+        Perform RVC f0 transformations on an existing pitch curve
+        """
         f0_min = 50
         f0_max = 1100
         f0_mel_min = 1127 * np.log(1 + f0_min / 700)
@@ -128,14 +128,14 @@ class RVCModel:
         f0_coarse = np.rint(f0_mel).astype(np.int32)
         return f0_coarse, f0bak
 
-    """
-    Raw RVC inference without windowing, protection, index ratio
-    """
     def raw_infer(self,
         feats : np.ndarray,
         pitch : np.ndarray,
         pitchf : np.ndarray,
         audio : np.ndarray = None, sid=0):
+        """
+        Raw RVC inference without windowing, protection, index ratio
+        """
         pipeline = self.vc.pipeline
         net_g = self.vc.net_g
         hasp = pitch is not None and pitchf is not None
