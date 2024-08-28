@@ -1,5 +1,6 @@
 from svc_helper.svc.rvc import RVCModel
 from svc_helper.sfeatures.models import RVCHubertModel
+from svc_helper.pitch.rmvpe import RMVPEModel
 from huggingface_hub import hf_hub_download
 import librosa
 import soundfile as sf
@@ -55,4 +56,19 @@ def test_rvc():
             lambda aud: rvc_hubert.extract_features(aud)})
     if OUTPUT_FILES:
         sf.write('tests/test_rvc_output_5.wav', wav_opt,
+            rvc_model.output_sample_rate())
+
+    # Test raw inference
+    data, rate = librosa.load('tests/test_speech.wav',
+        sr=RVCHubertModel.expected_sample_rate)
+    pitch_model = RMVPEModel()
+    feats = rvc_hubert.extract_features(data)
+    pitch = pitch_model.extract_pitch(data)
+    pitch, pitchf = rvc_model.f0_transform(pitch, 12)
+    wav_opt = rvc_model.raw_infer(
+        feats = feats,
+        pitch = pitch,
+        pitchf = pitchf)
+    if OUTPUT_FILES:
+        sf.write('tests/test_rvc_output_6.wav', wav_opt,
             rvc_model.output_sample_rate())
