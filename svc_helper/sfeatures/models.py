@@ -57,6 +57,8 @@ class RVCHubertModel:
         return audio
 
     def extract_features(self, audio: torch.Tensor, **kwargs):
+        if type(audio) == np.ndarray:
+            audio = torch.from_numpy(audio)
         feats = audio
         if self.is_half:
             feats = feats.half()
