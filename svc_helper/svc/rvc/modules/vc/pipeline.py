@@ -421,8 +421,8 @@ class Pipeline(object):
                 index = big_npy = None
         else:
             index = big_npy = None
-        audio = signal.filtfilt(bh, ah, audio)
-        audio_pad = np.pad(audio, (self.window // 2, self.window // 2), mode="reflect")
+        audio = signal.filtfilt(bh, ah, audio) # audio1
+        audio_pad = np.pad(audio, (self.window // 2, self.window // 2), mode="reflect") # audio2
         opt_ts = []
         if audio_pad.shape[0] > self.t_max:
             audio_sum = np.zeros_like(audio)
@@ -441,8 +441,7 @@ class Pipeline(object):
         audio_opt = []
         t = None
         t1 = ttime()
-        audio_pad = np.pad(audio, (self.t_pad, self.t_pad), mode="reflect")
-        #sf.write('test_audio_pad.wav', audio_pad, samplerate=16000)
+        audio_pad = np.pad(audio, (self.t_pad, self.t_pad), mode="reflect") # audio3
 
         p_len = audio_pad.shape[0] // self.window
         inp_f0 = None

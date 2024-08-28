@@ -10,6 +10,7 @@ from svc_helper.sfeatures.whisper.audio import (
     SAMPLE_RATE as SVC5W_SAMPLE_RATE, pad_or_trim, load_audio,
     log_mel_spectrogram)
 from svc_helper.sfeatures.whisper.model import Whisper, ModelDimensions
+from svc_helper.svc.rvc.lib.audio import load_audio
 
 class RVCHubertModel:
     expected_sample_rate = 16000
@@ -36,13 +37,22 @@ class RVCHubertModel:
         self.model = model.eval()
         self.device = device
 
+    """ Replicates RVC audio loading and normalization"""
+    def load_audio(self, audio_file : str):
+        audio = load_audio(audio_in, 16000)
+        audio_max = np.abs(audio).max() / 0.95
+        if audio_max > 1:
+            audio /= audio_max
+        return audio
+
     """ Replicates RVC audio padding - useful for training 
         models that modify extracted features in RVC inference """
     def pad_audio(self, audio : np.ndarray):
         t_pad = self.expected_sample_rate * self.x_pad
         window = self.window_len
         audio = signal.filtfilt(bh, ah, audio)
-        audio = np.pad(audio, (window // 2, window // 2), mode='reflect')
+        #audio = np.pad(audio, (window // 2, window // 2), mode='reflect')
+        # RVC overwrites the above line for some reason?
         audio = np.pad(audio, (t_pad, t_pad), mode='reflect')
         return audio
 
