@@ -10,7 +10,8 @@ class RMVPEModel:
         ))
         print('RVC_RMVPE_PATH:',rvc_rmvpe_path)
         self.model = RMVPE(model_path=rvc_rmvpe_path,
-            is_half=kwargs.get('is_half'), device=device)
+            is_half=kwargs.get('is_half'), device=device,
+            hop_length=kwargs.get('hop_length', 160))
 
     def extract_pitch(self, audio: torch.Tensor, **kwargs):
         if type(audio) == torch.Tensor:
@@ -501,7 +502,8 @@ class MelSpectrogram(torch.nn.Module):
 
 
 class RMVPE:
-    def __init__(self, model_path: str, is_half, device=None, use_jit=False):
+    def __init__(self, model_path: str, is_half, device=None, use_jit=False,
+        hop_length = 160):
         self.resample_kernel = {}
         self.resample_kernel = {}
         self.is_half = is_half
@@ -509,7 +511,8 @@ class RMVPE:
             device = "cuda:0" if torch.cuda.is_available() else "cpu"
         self.device = device
         self.mel_extractor = MelSpectrogram(
-            is_half, 128, 16000, 1024, 160, None, 30, 8000
+            is_half, 128, 16000, 1024,  None, 30, 8000,
+            hop_length=hop_length,
         ).to(device)
         if "privateuseone" in str(device):
             import onnxruntime as ort
