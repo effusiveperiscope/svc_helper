@@ -1,5 +1,5 @@
 # %%
-from svc_helper.pitch.rmvpe import RMVPE
+from svc_helper.pitch.rmvpe import RMVPEModel
 import librosa
 
 rmvpe_model_160 = RMVPEModel(hop_length=160)
@@ -11,10 +11,9 @@ pitch_160 = rmvpe_model_160.extract_pitch(data)
 pitch_200 = rmvpe_model_200.extract_pitch(data)
 
 # %%
-import matplotlib
-matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
 plt.plot(pitch_160)
 plt.plot(pitch_200)
 plt.show()
+# %%

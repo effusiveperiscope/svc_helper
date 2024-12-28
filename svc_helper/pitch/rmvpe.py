@@ -511,8 +511,14 @@ class RMVPE:
             device = "cuda:0" if torch.cuda.is_available() else "cpu"
         self.device = device
         self.mel_extractor = MelSpectrogram(
-            is_half, 128, 16000, 1024,  None, 30, 8000,
-            hop_length=hop_length,
+            is_half=is_half, 
+            n_mel_channels=128, 
+            sampling_rate=16000, 
+            win_length=1024,
+            hop_length=hop_length, 
+            n_fft=None, 
+            mel_fmin=30, 
+            mel_fmax=8000,
         ).to(device)
         if "privateuseone" in str(device):
             import onnxruntime as ort
