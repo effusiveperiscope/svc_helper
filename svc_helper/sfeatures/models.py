@@ -120,6 +120,8 @@ class SVC5WhisperModel:
         feats = pad_or_trim(feats)
         # torchaudio only supports 32bit float
         mel = log_mel_spectrogram(feats.float()).to(self.device)
+        if self.is_half:
+            mel = mel.half()
         with torch.no_grad():
             ppg = self.model.encoder(mel.unsqueeze(0)).squeeze().data.cpu()
             if self.is_half:
