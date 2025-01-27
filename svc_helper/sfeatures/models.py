@@ -118,7 +118,8 @@ class SVC5WhisperModel:
         audln = audio.shape[0]
         ppgln = audln // 320
         feats = pad_or_trim(feats)
-        mel = log_mel_spectrogram(feats).to(self.device)
+        # torchaudio only supports 32bit float
+        mel = log_mel_spectrogram(feats.float()).to(self.device)
         with torch.no_grad():
             ppg = self.model.encoder(mel.unsqueeze(0)).squeeze().data.cpu()
             if self.is_half:
