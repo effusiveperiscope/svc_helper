@@ -120,6 +120,10 @@ class SVC5WhisperModel:
         feats = pad_or_trim(feats)
         mel = log_mel_spectrogram(feats).to(self.device)
         with torch.no_grad():
-            ppg = self.model.encoder(mel.unsqueeze(0)).squeeze().data.cpu().float()
+            ppg = self.model.encoder(mel.unsqueeze(0)).squeeze().data.cpu()
+            if self.is_half:
+                ppg = ppg.half()
+            else:
+                ppg = ppg.float()
             ppg = ppg[:ppgln,]
         return ppg
