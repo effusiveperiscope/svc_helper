@@ -100,15 +100,21 @@ class SVC5WhisperModel:
         model.load_state_dict(checkpoint["model_state_dict"], strict=False)
         model.eval()
         model.to(device)
+        if kwargs.get('is_half'):
+            model = model.half()
         self.model = model
         self.device = device
+        self.is_half = kwargs.get('is_half', False)
 
     def extract_features(self, audio: torch.Tensor, **kwargs):
         feats = audio
         if feats.dim() == 2: # stereo
             feats = feats.mean(-1)
         assert feats.dim() == 1, feats.dim()
-        feats = feats.float()
+        if self.is_half:
+            feats = feats.half()
+        else:
+            feats = feats.float()
         audln = audio.shape[0]
         ppgln = audln // 320
         feats = pad_or_trim(feats)
