@@ -14,7 +14,6 @@ import os
 import time
 import numpy as np
 from io import BytesIO
-from gui.util import qshrink
 
 class AudioPreviewWidget(QWidget):
     """
@@ -263,7 +262,6 @@ class RichAudioPreviewWidget(QWidget):
         hlayout = QHBoxLayout(self)
         frame = QFrame()
         hlayout.addWidget(frame)
-        qshrink(hlayout)
 
         vlayout = QVBoxLayout(frame)
         vlayout.setSpacing(0)
