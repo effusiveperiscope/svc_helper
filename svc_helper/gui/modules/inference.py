@@ -78,11 +78,11 @@ class Inference(QWidget):
         self.stopwatch.stop_reset_stopwatch()
         preview_output_path = ''
         for audio in result.audios:
-            if not len(preview_output_path):
-                preview_output_path = output_path
             base_output_path = os.path.join(
                 self.config.files.default_outputs_dir, audio.label + "." + self.info.extension)
             output_path = get_sanitized_filename(base_output_path)
+            if not len(preview_output_path):
+                preview_output_path = output_path
             sf.write(output_path, audio.audio, self.info.sr)
         if len(result.audios) > 0:
             self.preview.from_file(preview_output_path)
