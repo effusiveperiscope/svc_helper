@@ -74,7 +74,7 @@ class Inference(QWidget):
         self.stopwatch.stop_reset_stopwatch()
         for audio in result.audios:
             base_output_path = os.path.join(
-                self.config.files.default_output_dir, audio.label + "." + self.info.extension)
+                self.config.files.default_outputs_dir, audio.label + "." + self.info.extension)
             output_path = get_sanitized_filename(base_output_path)
             sf.write(output_path, audio.audio, self.info.sr)
         
