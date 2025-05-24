@@ -55,7 +55,7 @@ class Inference(QWidget):
         self.info = info
 
         self.push_button = QPushButton(label)
-        self.push_button.clicked.connect(lambda: infer_action(self.get_params()))
+        self.push_button.clicked.connect(lambda: self.infer(infer_action))
         self.layout.addWidget(self.push_button)
 
         self.thread_pool = QThreadPool()
