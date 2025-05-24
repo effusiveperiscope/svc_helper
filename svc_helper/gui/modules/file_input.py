@@ -34,6 +34,7 @@ class AudioFileInput(QWidget):
     def _onFilesSelected(self, files):
         self._files = files
         self._updateLabel()
+        if not len(files): return
         self.preview.from_file(files[0])
 
     def _updateLabel(self):
