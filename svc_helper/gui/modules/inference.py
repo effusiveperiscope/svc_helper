@@ -8,6 +8,7 @@ import soundfile as sf
 from omegaconf import OmegaConf
 from ..utils import get_sanitized_filename
 from ..widgets.stopwatch import Stopwatch
+from ..widgets.audio_preview import AudioPreviewWidget
 
 @dataclass
 class AudioResult:
@@ -62,6 +63,9 @@ class Inference(QWidget):
         self.stopwatch = Stopwatch()
         self.layout.addWidget(self.stopwatch)
 
+        self.preview = AudioPreviewWidget()
+        self.layout.addWidget(self.preview)
+
     def infer(self, infer_action : Callable[[dict[str, Any]], AudioResult]):
         worker = InferenceWorker(
                 self.get_params(), infer_action, )
@@ -72,11 +76,16 @@ class Inference(QWidget):
 
     def infer_done(self, result : InferenceResult):
         self.stopwatch.stop_reset_stopwatch()
+        preview_output_path = ''
         for audio in result.audios:
+            if not len(preview_output_path):
+                preview_output_path = output_path
             base_output_path = os.path.join(
                 self.config.files.default_outputs_dir, audio.label + "." + self.info.extension)
             output_path = get_sanitized_filename(base_output_path)
             sf.write(output_path, audio.audio, self.info.sr)
+        if len(result.audios) > 0:
+            self.preview.from_file(preview_output_path)
         
     def gui_hook(self, get_params : Callable[[], dict[str, Any]], config : OmegaConf):
         self.get_params = get_params
