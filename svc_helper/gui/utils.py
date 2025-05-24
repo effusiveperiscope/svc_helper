@@ -20,8 +20,7 @@ def get_sanitized_filename(full_path: str, max_length: int = 200) -> str:
                           extension and a potential increment.
 
     Returns:
-        str: A unique, sanitized, and truncated filename that can be used
-             in the target directory.
+        str: A unique, sanitized, and truncated file path
     """
     # 1. Separate directory, filename, and extension
     target_directory = os.path.dirname(full_path)
@@ -91,4 +90,4 @@ def get_sanitized_filename(full_path: str, max_length: int = 200) -> str:
             if not os.path.exists(full_check_path):
                 break # Found a unique filename
 
-    return final_filename_candidate
+    return os.path.join(target_directory,final_filename_candidate)
