@@ -1,3 +1,4 @@
+import os
 from typing import Callable
 from PyQt5.QtWidgets import QGroupBox, QWidget, QHBoxLayout, QVBoxLayout
 from omegaconf import OmegaConf
@@ -39,6 +40,9 @@ class VoiceGUI(QWidget):
         self.params = []
         self.inferences = []
         self.recording = recording
+
+        if not os.path.exists(self.config.files.default_outputs_dir):
+            os.makedirs(self.config.files.default_outputs_dir)
 
     def addCheckpoint(self, x : Checkpoint):
         self.checkpoints.append(x)
