@@ -66,6 +66,9 @@ class Inference(QWidget):
         self.preview = AudioPreviewWidget()
         self.layout.addWidget(self.preview)
 
+        if not os.path.exists(self.config.files.default_outputs_dir):
+            os.makedirs(self.config.files.default_outputs_dir)
+
     def infer(self, infer_action : Callable[[dict[str, Any]], AudioResult]):
         worker = InferenceWorker(
                 self.get_params(), infer_action, )
