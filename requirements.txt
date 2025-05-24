@@ -3,7 +3,6 @@ fairseq==0.12.2
 faiss_cpu==1.7.4
 huggingface_hub==0.23.4
 infer==0.1
-intel_extension_for_pytorch==2.3.100
 librosa==0.10.1
 numpy==1.23.5
 onnxruntime==1.16.2
