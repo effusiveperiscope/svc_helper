@@ -17,9 +17,11 @@ def test_sfeatures():
     padded_data = rvc_model.pad_audio(data)
     sf.write('tests/test_padded.wav', padded_data, samplerate=16000)
     feat = rvc_model.extract_features(torch.from_numpy(data))
-    #print(feat.shape)
+    print(feat.shape)
 
     del rvc_model
     svc5_whisper_model = SVC5WhisperModel()
     feat = svc5_whisper_model.extract_features(torch.from_numpy(data))
-    #print(feat.shape)
+    print(feat.shape)
+    
+test_sfeatures()
