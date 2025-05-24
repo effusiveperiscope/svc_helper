@@ -82,5 +82,5 @@ class VoiceGUI(QWidget):
             ret["audio_files"] = {x.id: x.files() for x in self.file_inputs}
         if len(self.checkpoints) > 0:
             ret["model_labels"] = [x.value() for x in self.checkpoints]
-        ret['default_output_dir'] = self.config.files.default_output_dir
+        ret['default_output_dir'] = self.config.files.default_outputs_dir
         return ret
