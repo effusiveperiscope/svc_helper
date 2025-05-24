@@ -1,0 +1,4 @@
+files:
+  default_record_dir: recordings
+  default_outputs_dir: outputs
+  default_models_dir: models

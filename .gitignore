@@ -101,4 +101,4 @@ Thumbs.db
 ehthumbs.db
 
 *.ipynb
-tests
+tests/*.wav
