@@ -1,4 +1,5 @@
 import os
+import traceback
 from typing import Any, Callable
 from PyQt5.QtWidgets import QWidget, QVBoxLayout, QPushButton
 from PyQt5.QtCore import (QObject, QRunnable, QThreadPool, pyqtSignal, Qt)
@@ -41,7 +42,8 @@ class InferenceWorker(QRunnable):
         try:
             result = self.infer_action(self.params)
         except Exception as e:
-            print(e)
+            traceback.print_exc()
+            #print(e)
             result = InferenceResult([])
         self.emitters.finished.emit(result)
 
