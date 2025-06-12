@@ -92,3 +92,28 @@ class Inference(QWidget):
     def gui_hook(self, get_params : Callable[[], dict[str, Any]], config : OmegaConf):
         self.get_params = get_params
         self.config = config
+
+from svc_helper.inference.silero import SileroChunker
+class ChunkingInference(Inference):
+    def __init__(self,
+        info : InferenceInfo,
+        infer_action : Callable[[dict[str, Any]], AudioResult],
+        label="Infer",
+        ):
+        super().__init__(info, infer_action, label)
+        self.chunker = SileroChunker()
+
+    def gui_hook(self, get_params : Callable[[], dict[str, Any]], config : OmegaConf):
+        def this_get_params():
+            params = get_params()
+            chunks = {}
+            for audio_file in [v for k,v in params.get('audio_files', {}).items() if k == 'files']:
+                wav_true, sr = sf.read(audio_file)
+                chunks[audio_file] = {
+                    'length': wav_true.shape,
+                    'chunks': self.chunker(wav_true=wav_true, true_sr=sr,
+                    front_buffer=params.get('chunk_front_buffer_sec', 1),
+                    max_len=params.get('chunk_max_len_sec', 5))}
+            params['chunkinginference'] = chunks
+            return params
+        super().gui_hook(this_get_params, config)
