@@ -114,6 +114,6 @@ class ChunkingInference(Inference):
                     'chunks': self.chunker(wav_true=wav_true, true_sr=sr,
                     front_buffer=params.get('chunk_front_buffer_sec', 1),
                     max_len=params.get('chunk_max_len_sec', 5))}
-            params['chunkinginference'] = chunks
+            params['chunk_inference'] = chunks
             return params
         super().gui_hook(this_get_params, config)
