@@ -4,6 +4,8 @@ from fairseq import checkpoint_utils
 from scipy import signal
 import numpy as np
 import torch
+import torch.nn.functional as F
+from einops import rearrange
 bh, ah = signal.butter(N=5, Wn=48, btype="high", fs=16000)
 
 from svc_helper.sfeatures.whisper.audio import (
@@ -43,6 +45,9 @@ class RVCHubertModel:
 
     """ Replicates RVC audio loading and normalization"""
     def load_audio(self, audio_file : str):
+        """
+        Outputs [1, T, 768]
+        """
         audio = load_audio(audio_in, 16000)
         audio_max = np.abs(audio).max() / 0.95
         if audio_max > 1:
@@ -111,6 +116,9 @@ class SVC5WhisperModel:
         self.is_half = kwargs.get('is_half', False)
 
     def extract_features(self, audio: torch.Tensor, **kwargs):
+        """
+        Outputs [T, 1280]
+        """
         feats = audio
         if type(feats) == np.ndarray:
             feats = torch.from_numpy(feats)
@@ -150,6 +158,9 @@ class SVC5HubertModel:
         self.is_half = kwargs.get('is_half', False)
 
     def extract_features(self, audio : torch.Tensor, **kwargs):
+        """
+        Outputs [T, 256]
+        """
         feats = audio
         if type(feats) == np.ndarray:
             feats = torch.from_numpy(feats)
@@ -190,21 +201,37 @@ class SVC5TextEncoderFullModel:
             **kwargs)
 
     def extract_features(self, audio : torch.Tensor, **kwargs):
+        """
+        Outputs [1, 192, T]
+        """
         feats = audio
-        if type(feats) == np.ndarray:
-            feats = torch.from_numpy(feats)
-        if self.is_half:
-            feats = feats.half()
-        feats = feats.to(self.device)
-        feats = feats[None, None, :]
         whisper_feats = self.whisper.extract_features(feats, **kwargs)
         hubert_feats = self.hubert.extract_features(feats, **kwargs)
         pitch = self.rmvpe.extract_pitch(feats, **kwargs)
-        coarse_pitch = f0_to_coarse(pitch.cpu().numpy())
-        coarse_pitch = torch.from_numpy(coarse_pitch).to(self.device).to(whisper_feats.dtype)
+        coarse_pitch = f0_to_coarse(pitch) # [1, T]
+        coarse_pitch = coarse_pitch.to(self.device)
+
+        # Repeat inputs
+        whisper_feats = rearrange(
+            F.interpolate(
+            rearrange(whisper_feats,'t c -> 1 c t'), scale_factor=2.0)
+            , '1 c t -> 1 t c')
+        hubert_feats = rearrange(
+            F.interpolate(
+            rearrange(hubert_feats,'t c -> 1 c t'), scale_factor=2.0)
+            , '1 c t -> 1 t c')
+
+        min_length = min(whisper_feats.shape[1], hubert_feats.shape[1],
+            coarse_pitch.shape[1])
+
+        whisper_feats = whisper_feats[:, :min_length, :]
+        hubert_feats = hubert_feats[:, :min_length, :]
+        coarse_pitch = coarse_pitch[:, :min_length]
+
         _, _, _, _, text_encoder_feats = self.model(
             x=whisper_feats, 
-            x_lengths=torch.Tensor([whisper_feats.shape[1]]).to(self.device).to(torch.long),
+            x_lengths=torch.Tensor([whisper_feats.shape[1]])
+                .to(self.device).to(torch.long), #.unsqueeze(0),
             v=hubert_feats, 
             f0=coarse_pitch)
         return text_encoder_feats

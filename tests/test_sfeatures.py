@@ -1,5 +1,5 @@
 from svc_helper.sfeatures.models import RVCHubertModel, SVC5WhisperModel, \
-    SVC5HubertModel
+    SVC5HubertModel, SVC5TextEncoderFullModel
 import numpy as np
 import torch
 import librosa
@@ -28,6 +28,11 @@ def test_sfeatures():
     del svc5_whisper_model
     svc5_hubert_model = SVC5HubertModel()
     feat = svc5_hubert_model.extract_features(torch.from_numpy(data))
+    print(feat.shape)
+
+    del svc5_hubert_model
+    svc5_text_encoder_model = SVC5TextEncoderFullModel()
+    feat = svc5_text_encoder_model.extract_features(torch.from_numpy(data))
     print(feat.shape)
     
 test_sfeatures()
