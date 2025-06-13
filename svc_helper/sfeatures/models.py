@@ -111,6 +111,8 @@ class SVC5WhisperModel:
 
     def extract_features(self, audio: torch.Tensor, **kwargs):
         feats = audio
+        if type(feats) == np.ndarray:
+            feats = torch.from_numpy(feats)
         if feats.dim() == 2: # stereo
             feats = feats.mean(-1)
         assert feats.dim() == 1, feats.dim()
@@ -147,6 +149,8 @@ class SVC5HubertModel:
         self.is_half = kwargs.get('is_half', False)
 
     def extract_features(self, audio : torch.Tensor, **kwargs):
+        if type(feats) == np.ndarray:
+            feats = torch.from_numpy(feats)
         if self.is_half:
             audio = audio.half()
         audio = audio.to(self.device)
