@@ -150,6 +150,7 @@ class SVC5HubertModel:
         if self.is_half:
             audio = audio.half()
         audio = audio.to(self.device)
+        audio = audio[None, None, :]
         vec = self.model.units(audio)
         return vec
 
