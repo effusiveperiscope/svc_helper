@@ -13,6 +13,7 @@ from svc_helper.sfeatures.whisper.model import Whisper, ModelDimensions
 from svc_helper.sfeatures.svc5.hubert_model import hubert_soft
 from svc_helper.sfeatures.svc5.encoder import TextEncoder
 from svc_helper.pitch.rmvpe import RMVPEModel
+from svc_helper.pitch.utils import f0_to_coarse
 from svc_helper.svc.rvc.lib.audio import load_audio
 
 class RVCHubertModel:
@@ -188,4 +189,22 @@ class SVC5TextEncoderFullModel:
         self.rmvpe = RMVPEModel(device=device, is_half=self.is_half,
             **kwargs)
 
-    #def extract_features
+    def extract_features(self, audio : torch.Tensor, **kwargs):
+        feats = audio
+        if type(feats) == np.ndarray:
+            feats = torch.from_numpy(feats)
+        if self.is_half:
+            feats = feats.half()
+        feats = feats.to(self.device)
+        feats = feats[None, None, :]
+        whisper_feats = self.whisper.extract_features(feats, **kwargs)
+        hubert_feats = self.hubert.extract_features(feats, **kwargs)
+        pitch = self.rmvpe.extract_pitch(feats, **kwargs)
+        coarse_pitch = f0_to_coarse(pitch.cpu().numpy())
+        coarse_pitch = torch.from_numpy(coarse_pitch).to(self.device).to(whisper_feats.dtype)
+        _, _, _, _, text_encoder_feats = self.model(
+            x=whisper_feats, 
+            x_lengths=torch.Tensor([whisper_feats.shape[1]]).to(self.device).to(torch.long),
+            v=hubert_feats, 
+            f0=coarse_pitch)
+        return text_encoder_feats
