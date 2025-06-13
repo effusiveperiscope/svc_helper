@@ -10,9 +10,9 @@ from svc_helper.sfeatures.whisper.audio import (
     SAMPLE_RATE as SVC5W_SAMPLE_RATE, pad_or_trim, load_audio,
     log_mel_spectrogram)
 from svc_helper.sfeatures.whisper.model import Whisper, ModelDimensions
-from svc_helpers.sfeatures.svc5.hubert_model import hubert_soft
-from svc_helpers.sfeatures.svc5.encoder import TextEncoder
-from svc_helpers.pitch.rmvpe import RMVPEModel
+from svc_helper.sfeatures.svc5.hubert_model import hubert_soft
+from svc_helper.sfeatures.svc5.encoder import TextEncoder
+from svc_helper.pitch.rmvpe import RMVPEModel
 from svc_helper.svc.rvc.lib.audio import load_audio
 
 class RVCHubertModel:

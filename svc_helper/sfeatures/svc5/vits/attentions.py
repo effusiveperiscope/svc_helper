@@ -6,7 +6,7 @@ from torch import nn
 from torch.nn import functional as F
 
 from svc_helper.sfeatures.svc5.vits import commons
-from svc_helper.sfeatures.svc5.modules import LayerNorm
+from svc_helper.sfeatures.svc5.vits.modules import LayerNorm
 
 
 class Encoder(nn.Module):
