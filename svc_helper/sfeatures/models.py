@@ -156,7 +156,7 @@ class SVC5HubertModel:
             feats = feats.half()
         feats = feats.to(self.device)
         feats = feats[None, None, :]
-        vec = self.model.units(audio)
+        vec = self.model.units(feats)
         return vec
 
 class SVC5TextEncoderFullModel:
