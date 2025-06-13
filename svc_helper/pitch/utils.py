@@ -30,3 +30,20 @@ def smooth_pitch(pitch, lam=0.4):
     # Then mask to preserve onsets
     mask = (pitch != 0).astype(np.float32)
     return smoothed_curve(np.arange(0, pitch.shape[0])) * mask
+
+def f0_to_coarse(pitch: np.ndarray) -> torch.Tensor:
+    """Converts f0 to coarse representation."""
+    if type(pitch) is torch.Tensor:
+        pitch = pitch.detach().cpu().numpy()
+    f0_min = 50
+    f0_max = 1100
+    f0_mel_min = 1127 * np.log(1 + f0_min / 700)
+    f0_mel_max = 1127 * np.log(1 + f0_max / 700)
+    f0_mel = 1127 * np.log(1 + pitch / 700)
+    f0_mel[f0_mel > 0] = (f0_mel[f0_mel > 0] - f0_mel_min) * 254 / (
+        f0_mel_max - f0_mel_min
+    ) + 1
+    f0_mel[f0_mel <= 1] = 1
+    f0_mel[f0_mel > 255] = 255
+    f0_coarse = np.rint(f0_mel).astype(np.int32)
+    return torch.from_numpy(f0_coarse).unsqueeze(0)
