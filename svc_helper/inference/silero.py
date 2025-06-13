@@ -14,7 +14,9 @@ class SileroChunker:
         front_buffer=1, # seconds
         max_len=5 # seconds
         ):
-        wav_silero = librosa.resample(wav_true, true_sr, self.silero_sr)
+        wav_silero = librosa.resample(wav_true,
+            orig_sr=true_sr, 
+            target_sr=self.silero_sr)
         speech_timestamps = get_speech_timestamps(
             wav_silero, self.model)
 

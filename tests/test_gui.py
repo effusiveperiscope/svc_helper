@@ -19,7 +19,7 @@ class MainWindow(QMainWindow):
             id="string_param"))
         gui.addParam(BoolParam(label="Bool Param",
             id="bool_param"))
-        gui.addInference(Inference(
+        gui.addInference(ChunkingInference(
             info=InferenceInfo(sr=48000, extension="flac"),
             infer_action=lambda x: print(x)
         ))

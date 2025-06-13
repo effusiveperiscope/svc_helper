@@ -38,12 +38,25 @@ class InferenceWorker(QRunnable):
         self.infer_action = infer_action
         self.emitters = InferenceWorkerEmitters()
 
+
     def run(self):
         try:
+            if 'chunker' in self.params:
+                chunks = {}
+                for audio_files in [v for k,v in self.params.get('audio_files', {}).items() if k == 'files']:
+                    for audio_file in audio_files:
+                        wav_true, sr = sf.read(audio_file)
+                        chunks[audio_file] = {
+                            'length': wav_true.shape,
+                            'chunks': self.chunker(wav_true=wav_true, true_sr=sr,
+                            front_buffer=self.params.get('chunk_front_buffer_sec', 1),
+                            max_len=self.params.get('chunk_max_len_sec', 5))}
+                self.params['chunk_inference'] = chunks
             result = self.infer_action(self.params)
+            if result is None:
+                result = InferenceResult([])
         except Exception as e:
             traceback.print_exc()
-            #print(e)
             result = InferenceResult([])
         self.emitters.finished.emit(result)
 
@@ -69,12 +82,17 @@ class Inference(QWidget):
         self.layout.addWidget(self.preview)
 
     def infer(self, infer_action : Callable[[dict[str, Any]], AudioResult]):
-        worker = InferenceWorker(
-                self.get_params(), infer_action, )
-        worker.emitters.finished.connect(self.infer_done)
-        self.thread_pool.start(worker)
-        self.stopwatch.stop_reset_stopwatch()
-        self.stopwatch.start_stopwatch()
+        try:
+            worker = InferenceWorker(
+                    self.get_params(), infer_action, )
+            worker.emitters.finished.connect(self.infer_done)
+            self.thread_pool.start(worker)
+            self.stopwatch.stop_reset_stopwatch()
+            self.stopwatch.start_stopwatch()
+        except Exception as e:
+            traceback.print_exc()
+            print(e)
+            self.stopwatch.stop_reset_stopwatch()
 
     def infer_done(self, result : InferenceResult):
         self.stopwatch.stop_reset_stopwatch()
@@ -106,14 +124,6 @@ class ChunkingInference(Inference):
     def gui_hook(self, get_params : Callable[[], dict[str, Any]], config : OmegaConf):
         def this_get_params():
             params = get_params()
-            chunks = {}
-            for audio_file in [v for k,v in params.get('audio_files', {}).items() if k == 'files']:
-                wav_true, sr = sf.read(audio_file)
-                chunks[audio_file] = {
-                    'length': wav_true.shape,
-                    'chunks': self.chunker(wav_true=wav_true, true_sr=sr,
-                    front_buffer=params.get('chunk_front_buffer_sec', 1),
-                    max_len=params.get('chunk_max_len_sec', 5))}
-            params['chunk_inference'] = chunks
+            params['chunker'] = self.chunker
             return params
         super().gui_hook(this_get_params, config)
