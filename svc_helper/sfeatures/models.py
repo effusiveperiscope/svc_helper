@@ -157,7 +157,7 @@ class SVC5HubertModel:
         feats = feats.to(self.device)
         feats = feats[None, None, :]
         vec = self.model.units(feats)
-        return vec
+        return vec.squeeze(0)
 
 class SVC5TextEncoderFullModel:
     expected_sample_rate = 16000
