@@ -1,4 +1,5 @@
-from svc_helper.sfeatures.models import RVCHubertModel, SVC5WhisperModel
+from svc_helper.sfeatures.models import RVCHubertModel, SVC5WhisperModel, \
+    SVC5HubertModel
 import numpy as np
 import torch
 import librosa
@@ -22,6 +23,11 @@ def test_sfeatures():
     del rvc_model
     svc5_whisper_model = SVC5WhisperModel()
     feat = svc5_whisper_model.extract_features(torch.from_numpy(data))
+    print(feat.shape)
+
+    del svc5_whisper_model
+    svc5_hubert_model = SVC5HubertModel()
+    feat = svc5_hubert_model.extract_features(torch.from_numpy(data))
     print(feat.shape)
     
 test_sfeatures()

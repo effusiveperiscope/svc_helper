@@ -10,6 +10,9 @@ from svc_helper.sfeatures.whisper.audio import (
     SAMPLE_RATE as SVC5W_SAMPLE_RATE, pad_or_trim, load_audio,
     log_mel_spectrogram)
 from svc_helper.sfeatures.whisper.model import Whisper, ModelDimensions
+from svc_helpers.sfeatures.svc5.hubert_model import hubert_soft
+from svc_helpers.sfeatures.svc5.encoder import TextEncoder
+from svc_helpers.pitch.rmvpe import RMVPEModel
 from svc_helper.svc.rvc.lib.audio import load_audio
 
 class RVCHubertModel:
@@ -130,3 +133,53 @@ class SVC5WhisperModel:
                 ppg = ppg.float()
             ppg = ppg[:ppgln,]
         return ppg
+
+class SVC5HubertModel:
+    expected_sample_rate = 16000
+    def __init__(self, device = torch.device('cpu'), **kwargs):
+        hubert_path = kwargs.get('hubert_path',
+            hf_hub_download(repo_id='therealvul/svc_helper',
+                filename='svc5_hubert-soft.pt'))
+        self.model = hubert_soft(hubert_path)
+        if kwargs.get('is_half', False):
+            self.model = self.model.half()
+        self.device = device
+        self.is_half = kwargs.get('is_half', False)
+
+    def extract_features(self, audio : torch.Tensor, **kwargs):
+        if self.is_half:
+            audio = audio.half()
+        audio = audio.to(self.device)
+        vec = self.model.units(audio)
+        return vec
+
+class SVC5TextEncoderFullModel:
+    expected_sample_rate = 16000
+    def __init__(self, device = torch.device('cpu'), **kwargs):
+        text_encoder_path = kwargs.get('text_encoder_path',
+            hf_hub_download(repo_id='therealvul/svc_helper',
+                filename='svc5_text_encoder.pth'))
+        self.model = TextEncoder(
+            in_channels=1280,
+            vec_channels=256,
+            out_channels=192,
+            hidden_channels=192,
+            filter_channels=640,
+            n_heads=2,
+            n_layers=6,
+            kernel_size=3,
+            p_dropout=0.1
+        )
+        if kwargs.get('is_half', False):
+            self.model = self.model.half()
+        self.device = device
+        self.is_half = kwargs.get('is_half', False)
+
+        self.whisper = SVC5WhisperModel(device=device, is_half=self.is_half,
+            **kwargs)
+        self.hubert = SVC5HubertModel(device=device, is_half=self.is_half,
+            **kwargs)
+        self.rmvpe = RMVPEModel(device=device, is_half=self.is_half,
+            **kwargs)
+
+    #def extract_features
