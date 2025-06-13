@@ -149,12 +149,13 @@ class SVC5HubertModel:
         self.is_half = kwargs.get('is_half', False)
 
     def extract_features(self, audio : torch.Tensor, **kwargs):
+        feats = audio
         if type(feats) == np.ndarray:
             feats = torch.from_numpy(feats)
         if self.is_half:
-            audio = audio.half()
-        audio = audio.to(self.device)
-        audio = audio[None, None, :]
+            feats = feats.half()
+        feats = feats.to(self.device)
+        feats = feats[None, None, :]
         vec = self.model.units(audio)
         return vec
 
