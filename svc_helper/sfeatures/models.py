@@ -164,6 +164,8 @@ class SVC5HubertModel:
         self.model = hubert_soft(hubert_path)
         if kwargs.get('is_half', False):
             self.model = self.model.half()
+        self.model.to(device)
+        self.model.eval()
         self.device = device
         self.is_half = kwargs.get('is_half', False)
 
@@ -201,6 +203,8 @@ class SVC5TextEncoderFullModel:
         if kwargs.get('is_half', False):
             self.model = self.model.half()
         self.device = device
+        self.model.eval()
+        self.model.to(device)
         self.is_half = kwargs.get('is_half', False)
 
         self.whisper = SVC5WhisperModel(device=device, is_half=self.is_half,
@@ -239,9 +243,9 @@ class SVC5TextEncoderFullModel:
         coarse_pitch = coarse_pitch[:, :min_length]
 
         _, _, _, _, text_encoder_feats = self.model(
-            x=whisper_feats, 
+            x=whisper_feats.to(self.device), 
             x_lengths=torch.Tensor([whisper_feats.shape[1]])
                 .to(self.device).to(torch.long), #.unsqueeze(0),
-            v=hubert_feats, 
-            f0=coarse_pitch)
+            v=hubert_feats.to(self.device), 
+            f0=coarse_pitch.to(self.device))
         return text_encoder_feats
