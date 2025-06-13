@@ -1,9 +1,9 @@
 from dataclasses import dataclass
 from huggingface_hub import hf_hub_download
+import torch
 from fairseq import checkpoint_utils
 from scipy import signal
 import numpy as np
-import torch
 import torch.nn.functional as F
 from einops import rearrange
 bh, ah = signal.butter(N=5, Wn=48, btype="high", fs=16000)
@@ -24,8 +24,18 @@ class RVCHubertModel:
         rvc_hubert_path = kwargs.get('rvc_hubert_path', hf_hub_download(
             repo_id='therealvul/svc_helper', filename='rvc_hubert.pt'))
 
+        # Monkey patch for fairseq
+        original_torch_load = torch.load
+        def patched_torch_load(*args, **kwargs):
+            # Ensure weights_only=False unless explicitly set
+            if 'weights_only' not in kwargs:
+                kwargs['weights_only'] = False
+            return original_torch_load(*args, **kwargs)
+        torch.load = patched_torch_load
         models, saved_cfg, _ = checkpoint_utils.load_model_ensemble_and_task(
             [rvc_hubert_path], suffix='')
+        torch.load = original_torch_load
+
         #print('normalize:',saved_cfg.task.normalize)
         model = models[0]
         model = model.to(device)
