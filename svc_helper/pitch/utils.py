@@ -32,7 +32,7 @@ def smooth_pitch(pitch, lam=0.4):
     mask = (pitch != 0).astype(np.float32)
     return smoothed_curve(np.arange(0, pitch.shape[0])) * mask
 
-def f0_to_coarse(pitch: np.ndarray,
+def f0_to_coarse(pitch: np.ndarray, # Coarse pitch from RVC
         f0_min = 50,
         f0_max = 1100,
     ) -> torch.Tensor:
