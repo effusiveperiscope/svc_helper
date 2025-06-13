@@ -41,5 +41,5 @@ dependencies = [
 svc_helper = ["gui/config.yaml"]
 
 [project.urls]
-Homepage = "https://github.com/pypa/sampleproject"
-Issues = "https://github.com/pypa/sampleproject/issues"
+Homepage = "https://github.com/effusiveperiscope/svc_helper"
+Issues = "https://github.com/effusiveperiscope/svc_helper/issues"

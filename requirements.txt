@@ -14,3 +14,4 @@ torch==2.3.1+cu121
 torchcrepe==0.0.22
 PyQt5==5.15.8
 transformers==4.52.3
+silero-vad==5.1.2
