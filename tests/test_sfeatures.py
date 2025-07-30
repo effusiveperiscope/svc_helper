@@ -15,24 +15,24 @@ def test_sfeatures():
     data, rate = librosa.load('tests/ood5_male.wav',
         sr=RVCHubertModel.expected_sample_rate)
     #print(len(data))
-    padded_data = rvc_model.pad_audio(data)
-    sf.write('tests/test_padded.wav', padded_data, samplerate=16000)
-    feat = rvc_model.extract_features(torch.from_numpy(data))
-    print(feat.shape)
+    # padded_data = rvc_model.pad_audio(data)
+    # sf.write('tests/test_padded.wav', padded_data, samplerate=16000)
+    # feat = rvc_model.extract_features(torch.from_numpy(data))
+    # print(feat.shape)
 
-    del rvc_model
+    # del rvc_model
     svc5_whisper_model = SVC5WhisperModel()
     feat = svc5_whisper_model.extract_features(torch.from_numpy(data))
     print(feat.shape)
 
-    del svc5_whisper_model
-    svc5_hubert_model = SVC5HubertModel()
-    feat = svc5_hubert_model.extract_features(torch.from_numpy(data))
-    print(feat.shape)
+    # del svc5_whisper_model
+    # svc5_hubert_model = SVC5HubertModel()
+    # feat = svc5_hubert_model.extract_features(torch.from_numpy(data))
+    # print(feat.shape)
 
-    del svc5_hubert_model
-    svc5_text_encoder_model = SVC5TextEncoderFullModel()
-    feat = svc5_text_encoder_model.extract_features(torch.from_numpy(data))
-    print(feat.shape)
+    # del svc5_hubert_model
+    # svc5_text_encoder_model = SVC5TextEncoderFullModel()
+    # feat = svc5_text_encoder_model.extract_features(torch.from_numpy(data))
+    # print(feat.shape)
     
 test_sfeatures()

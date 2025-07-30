@@ -1,3 +1,4 @@
+from contextlib import contextmanager
 from dataclasses import dataclass
 from typing import Dict
 from typing import Iterable, Optional
@@ -7,6 +8,14 @@ import torch
 import torch.nn.functional as F
 from torch import Tensor
 from torch import nn
+
+try:
+    from torch.nn.functional import scaled_dot_product_attention
+
+    SDPA_AVAILABLE = True
+except (ImportError, RuntimeError, OSError):
+    scaled_dot_product_attention = None
+    SDPA_AVAILABLE = False
 
 from .decoding import (
     detect_language as detect_language_function, decode as decode_function)
@@ -54,8 +63,18 @@ def sinusoids(length, channels, max_timescale=10000):
     scaled_time = torch.arange(length)[:, np.newaxis] * inv_timescales[np.newaxis, :]
     return torch.cat([torch.sin(scaled_time), torch.cos(scaled_time)], dim=1)
 
+@contextmanager
+def disable_sdpa():
+    prev_state = MultiHeadAttention.use_sdpa
+    try:
+        MultiHeadAttention.use_sdpa = False
+        yield
+    finally:
+        MultiHeadAttention.use_sdpa = prev_state
 
 class MultiHeadAttention(nn.Module):
+    use_sdpa = True
+
     def __init__(self, n_state: int, n_head: int):
         super().__init__()
         self.n_head = n_head
@@ -89,17 +108,27 @@ class MultiHeadAttention(nn.Module):
     def qkv_attention(self, q: Tensor, k: Tensor, v: Tensor, mask: Optional[Tensor] = None):
         n_batch, n_ctx, n_state = q.shape
         scale = (n_state // self.n_head) ** -0.25
-        q = q.view(*q.shape[:2], self.n_head, -1).permute(0, 2, 1, 3) * scale
-        k = k.view(*k.shape[:2], self.n_head, -1).permute(0, 2, 3, 1) * scale
+        q = q.view(*q.shape[:2], self.n_head, -1).permute(0, 2, 1, 3)
+        k = k.view(*k.shape[:2], self.n_head, -1).permute(0, 2, 1, 3)
         v = v.view(*v.shape[:2], self.n_head, -1).permute(0, 2, 1, 3)
 
-        qk = q @ k
-        if mask is not None:
-            qk = qk + mask[:n_ctx, :n_ctx]
-        qk = qk.float()
+        if SDPA_AVAILABLE and MultiHeadAttention.use_sdpa:
+            a = scaled_dot_product_attention(
+                q, k, v, is_causal=mask is not None and n_ctx > 1
+            )
+            out = a.permute(0, 2, 1, 3).flatten(start_dim=2)
+            qk = None
+        else:
+            qk = (q * scale) @ (k * scale).transpose(-1, -2)
+            if mask is not None:
+                qk = qk + mask[:n_ctx, :n_ctx]
+            qk = qk.float()
 
-        w = F.softmax(qk, dim=-1).to(q.dtype)
-        return (w @ v).permute(0, 2, 1, 3).flatten(start_dim=2), qk.detach()
+            w = F.softmax(qk, dim=-1).to(q.dtype)
+            out = (w @ v).permute(0, 2, 1, 3).flatten(start_dim=2)
+            qk = qk.detach()
+
+        return out, qk
 
 
 class ResidualAttentionBlock(nn.Module):
