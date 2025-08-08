@@ -5,7 +5,10 @@ from scipy import ndimage
 from scipy.interpolate import interp1d, make_smoothing_spline
 
 def nonzero_mean(x):
-    return np.mean(x[x.nonzero()])
+    nonzero_vals = x[x != 0]
+    if nonzero_vals.size == 0:
+        return 0.0  # or np.nan, or raise an Exception — depends on your needs
+    return np.mean(nonzero_vals)
 
 # Linear bins, quantilized on nonzero values, with 0 as first bin
 def f0_quantilize(x, n_bins=5):
