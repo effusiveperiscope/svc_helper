@@ -12,13 +12,14 @@ class SileroChunker:
         wav_true : np.ndarray, # usually 48khz or 44.1khz
         true_sr=48000,
         front_buffer=1, # seconds
-        max_len=5 # seconds
+        max_len=5, # seconds
+        **kwargs
         ):
         wav_silero = librosa.resample(wav_true,
             orig_sr=true_sr, 
             target_sr=self.silero_sr)
         speech_timestamps = get_speech_timestamps(
-            wav_silero, self.model)
+            wav_silero, self.model, **kwargs)
 
         sr = true_sr
         
