@@ -13,10 +13,12 @@ class RMVPEModel:
             is_half=kwargs.get('is_half'), device=device,
             hop_length=kwargs.get('hop_length', 160))
 
-    def extract_pitch(self, audio: torch.Tensor, **kwargs):
+    def extract_pitch(self, audio: torch.Tensor, return_hidden=False, **kwargs):
         if type(audio) == torch.Tensor:
             audio = audio.numpy()
-        f0 = self.model.infer_from_audio(audio, thred=kwargs.get('thred', 0.03))
+        f0, hidden = self.model.infer_from_audio(audio, thred=kwargs.get('thred', 0.03))
+        if return_hidden:
+            return f0, hidden
         return f0
 
 # From RVC https://github.com/RVC-Project/Retrieval-based-Voice-Conversion-WebUI
@@ -608,7 +610,7 @@ class RMVPE:
         # torch.cuda.synchronize()
         t3 = ttime()
         # print("hmvpe:%s\t%s\t%s\t%s"%(t1-t0,t2-t1,t3-t2,t3-t0))
-        return f0
+        return f0, hidden
 
     def to_local_average_cents(self, salience, thred=0.05):
         # t0 = ttime()

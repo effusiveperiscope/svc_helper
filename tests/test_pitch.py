@@ -13,8 +13,10 @@ def test_pitch():
 
     #print('pitch shape:',pitch.shape)
     #print('pitch mean:',pitch[pitch.nonzero()].mean())
-    pitch = rmvpe_model.extract_pitch(data)
+    pitch, hidden = rmvpe_model.extract_pitch(data, return_hidden=True)
 
     print(nonzero_mean(pitch))
     print(f0_quantilize(pitch))
+
+    print(hidden.shape)
     
