@@ -633,6 +633,7 @@ class RMVPE:
         devided = product_sum / weight_sum  # 帧长
         # t3 = ttime()
         maxx = np.max(salience, axis=1)  # 帧长
+        print(maxx)
         devided[maxx <= thred] = 0
         # t4 = ttime()
         # print("decode:%s\t%s\t%s\t%s" % (t1 - t0, t2 - t1, t3 - t2, t4 - t3))
