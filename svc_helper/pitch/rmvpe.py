@@ -21,19 +21,23 @@ class RMVPEModel:
             return f0, hidden
         return f0
 
-    """
-    Extract pitch using a viterbi decoding based method.
-    Also can provide optional summary features based on hidden state:
-        return_confidence (confidence of F0)
-        return_subharmonic_confidence (confidence of subharmonic)
-        return_inharmonic_confidence (other information)
-    """
     def extract_pitch2(self, audio: np.ndarray, 
         return_confidence=False,
         return_subharmonic_confidence=False,
         return_inharmonic_confidence=False,
         smooth_extras=False,
         **kwargs):
+        """
+        Extract pitch using a viterbi decoding based method. 
+
+        This attempts to reduce octave decoding errors that arise from the normal
+        greedy sampling method.
+
+        Also can provide optional summary features based on hidden state:
+            return_confidence (confidence of F0)
+            return_subharmonic_confidence (confidence of subharmonic)
+            return_inharmonic_confidence (other information)
+        """
         if type(audio) == torch.Tensor:
             audio = audio.detach().cpu().numpy()
         f0, extras = self.model.infer_from_audio2(audio,
