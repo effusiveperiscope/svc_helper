@@ -14,7 +14,7 @@ pitch, hidden = rmvpe_model.extract_pitch(data, return_hidden=True)
 # %%
 from scipy.signal import find_peaks
 def gather_peaks_maxheights(hidden, 
-    num_bins = 320, distance=25, min_height = 0.015):
+    num_bins = 320, distance=25, min_height = 0.0005):
     all_peaks = np.zeros((hidden.shape[0], num_bins * 2 // distance))
     num_peaks = np.zeros((hidden.shape[0], 1))
     maxheights = np.zeros((hidden.shape[0], 1))
@@ -43,9 +43,9 @@ all_peaks, num_peaks, maxheights = gather_peaks_maxheights(hidden)
 
 # 90 - octave ambig.
 # 122 - wrong octave confidence
-timestep_to_look = 130
+timestep_to_look = 510
 #plt.plot(np.max(hidden, axis=1))
-plt.plot(hidden[timestep_to_look])
+plt.plot(np.log(hidden[timestep_to_look]))
 print(all_peaks[timestep_to_look, 0:10])
 plt.show()
 
