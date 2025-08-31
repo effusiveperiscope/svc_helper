@@ -21,6 +21,29 @@ class RMVPEModel:
             return f0, hidden
         return f0
 
+    """
+    Extract pitch using a viterbi decoding based method.
+    Also can provide optional summary features based on hidden state:
+        return_confidence (confidence of F0)
+        return_subharmonic_confidence (confidence of subharmonic)
+        return_inharmonic_confidence (other information)
+    """
+    def extract_pitch2(self, audio: np.ndarray, 
+        return_confidence=False,
+        return_subharmonic_confidence=False,
+        return_inharmonic_confidence=False,
+        smooth_extras=False,
+        **kwargs):
+        if type(audio) == torch.Tensor:
+            audio = audio.detach().cpu().numpy()
+        f0, extras = self.model.infer_from_audio2(audio,
+            return_confidence=return_confidence,
+            return_subharmonic_confidence=return_subharmonic_confidence,
+            return_inharmonic_confidence=return_inharmonic_confidence,
+            smooth_extras=smooth_extras,
+            **kwargs)
+        return f0, extras
+
 # From RVC https://github.com/RVC-Project/Retrieval-based-Voice-Conversion-WebUI
 from io import BytesIO
 import os
@@ -586,6 +609,28 @@ class RMVPE:
         # f0 = np.array([10 * (2 ** (cent_pred / 1200)) if cent_pred else 0 for cent_pred in cents_pred])
         return f0
 
+    def infer_from_audio2(
+        self, audio,
+        return_confidence=False,
+        return_subharmonic_confidence=False,
+        return_inharmonic_confidence=False,
+        smooth_extras=False
+    ):
+        mel = self.mel_extractor(
+            torch.from_numpy(audio).float().to(self.device).unsqueeze(0), center=True
+        )
+        hidden = self.mel2hidden(mel).squeeze(0).cpu().numpy()
+        peak_vals, peak_counts, vuv = gather_peaks(hidden)
+        path = decode_f0_center_path(peak_vals, peak_counts, vuv)
+        pitch, extras = decode_f0_mass(path, hidden,
+            return_confidence=return_confidence,
+            return_subharmonic_confidence=return_subharmonic_confidence,
+            return_inharmonic_confidence=return_inharmonic_confidence,
+            smooth_extras=smooth_extras
+        )
+        extras["hidden"] = hidden
+        return pitch, extras
+
     def infer_from_audio(self, audio, thred=0.03):
         # torch.cuda.synchronize()
         t0 = ttime()
@@ -633,8 +678,229 @@ class RMVPE:
         devided = product_sum / weight_sum  # 帧长
         # t3 = ttime()
         maxx = np.max(salience, axis=1)  # 帧长
-        print(maxx)
+        # print(maxx)
         devided[maxx <= thred] = 0
         # t4 = ttime()
         # print("decode:%s\t%s\t%s\t%s" % (t1 - t0, t2 - t1, t3 - t2, t4 - t3))
         return devided
+
+from scipy.interpolate import interp1d
+from scipy.signal import find_peaks
+from scipy.ndimage import gaussian_filter1d
+def fake_bin_curve(hidden, voiced_thred = 0.05):
+    # make fake bin curve lerping in unvoiced segments - 
+    # this way large pitch jumps across unvoiced segments are not penalized
+    bins = np.argmax(hidden, axis=1)
+    maxheights = np.max(hidden, axis=1)
+
+    vuv = maxheights >= voiced_thred
+
+    if not len(maxheights[vuv]): # Completely unvoiced
+        return np.zeros((hidden.shape[0], 1))
+
+    interpolator = interp1d(np.arange(0, hidden.shape[0])[vuv], bins[vuv],
+        kind='linear', bounds_error=False, fill_value='extrapolate')
+    interpolated = interpolator(np.arange(0, hidden.shape[0]))
+    bins[~vuv] = interpolated[~vuv]
+    return bins, vuv
+
+def gather_peaks(hidden, 
+        distance = 30, 
+        min_log_height = -7,
+        likely_voiced_log_thred = -3,
+        octave_height = 60,
+        octave_eps = 2):
+    num_bins = hidden.shape[1]
+    # Use log scale to find peaks
+    log_hidden = np.log(hidden)
+
+    peak_vals = np.zeros((hidden.shape[0], num_bins * 2 // distance))
+    peak_counts = np.zeros((hidden.shape[0], 1))
+
+    fake_bins, vuv = fake_bin_curve(hidden)
+
+    for i, timestep in enumerate(hidden):
+        peaks, properties = find_peaks(log_hidden[i], height=min_log_height, distance=distance)
+        primary_peak = np.argmax(log_hidden[i])
+
+        likely_voiced = log_hidden[i, primary_peak] >= likely_voiced_log_thred
+        if likely_voiced:
+            # The most likely failure mode is an octave up or down
+            
+            # We always assume +1 octave and -1 octave are possible
+            peaks = [
+                primary_peak,
+                primary_peak + octave_height,
+                primary_peak - octave_height
+            ]
+            peak_vals[i, 0:len(peaks)] = peaks
+            peak_counts[i] = len(peaks)
+        else:
+            peaks = [np.round(fake_bins[i])]
+            peak_vals[i, 0:len(peaks)] = peaks
+            peak_counts[i] = len(peaks)
+
+    return peak_vals, peak_counts, vuv
+
+def decode_f0_center_path(peak_vals, peak_counts, vuv,
+    logdelta_coef = 1, octave_coef = 60,
+    octave_height = 60, octave_eps = 2,
+    eps = 1e-9):
+    T = peak_vals.shape[0]
+    P = int(np.max(peak_counts).item())
+
+    dp_cost = np.full((T, P), np.inf)
+    backptr = -np.ones((T, P), dtype=int)
+
+    if T <= 1:
+        return peak_vals
+
+    # Viterbi, but all node costs are 0.
+    # The reason we ignore probability mass here is because when the model fails
+    # it has a tendency to place a large amount of probability on the wrong
+    # octave (but the right chrome)
+
+    # Base
+    dp_cost[0, :] = 0
+
+    # Forward pass
+    for t in range(1, T):
+        this_peak_vals = peak_vals[t][0:int(peak_counts[t][0])]
+        for i,p in enumerate(this_peak_vals):
+            p = int(p)
+            node_cost = 0
+
+            best_cost = np.inf
+            best_prev = -1
+
+            prev_peak_vals = peak_vals[t - 1][0:int(peak_counts[t - 1][0])]
+            for j,p_prev in enumerate(prev_peak_vals):
+                delta_cost = np.abs(p - p_prev) * logdelta_coef
+                if (np.abs(np.abs(p - p_prev) - octave_height)) <= octave_eps:
+                    octave_cost = octave_coef
+                else:
+                    octave_cost = 0
+                cost = node_cost + delta_cost + octave_cost
+                if cost < best_cost:
+                    best_cost = cost
+                    best_prev = j
+
+            dp_cost[t, i] = best_cost
+            backptr[t, i] = best_prev
+
+    # Backward
+    path_values = []
+    i = np.argmin(dp_cost[-1, :])
+    for t in reversed(range(T)):
+        path_values.append(peak_vals[t, i])
+        i = backptr[t, i]
+    path_values.reverse()
+    return (path_values * vuv).astype(int)
+
+def decode_f0_mass(
+    center_path : np.ndarray, 
+    hidden : np.ndarray,
+    octave_height = 60,
+    return_confidence=False,
+    return_subharmonic_confidence=False,
+    return_inharmonic_confidence=False,
+    smooth_extras=False):
+    """
+    Decodes F0 and optionally extracts features from hidden states based on a center path.
+
+    Args:
+        center_path (np.ndarray): The Viterbi-decoded path of center bins.
+        hidden (np.ndarray): The RMVPE hidden states (salience map).
+        octave_height (int): The number of bins in an octave.
+        return_confidence (bool): Whether to return the salience around the F0.
+        return_subharmonic_confidence (bool): Whether to return the salience at the subharmonic.
+        return_inharmonic_confidence (bool): Whether to return the salience outside the F0.
+        smooth_extras (bool): Whether to apply a Gaussian filter to the extra features.
+
+    Returns:
+        tuple[np.ndarray, dict]: A tuple containing the F0 curve and a dictionary of extra features.
+    """
+    # normal mass averaging from RMVPE
+
+    cents_mapping = 20 * np.arange(360) + 1997.3794084376191
+    cents_mapping = np.pad(cents_mapping, (4, 4))  # 368
+
+    todo_salience = []
+    todo_cents_mapping = []
+
+    vuv = center_path != 0
+    center_path = np.clip(center_path - 4, 0, 359)
+    starts = np.clip(center_path - 4, 0, 359)
+    ends = np.clip(center_path + 5, 0, 359)
+
+    for idx in range(hidden.shape[0]):
+        if vuv[idx] == False: # unvoiced
+            todo_salience.append(np.zeros(9))
+            todo_cents_mapping.append(np.zeros(9))
+        else:
+            todo_salience.append(hidden[idx, starts[idx] : ends[idx]])
+            todo_cents_mapping.append(cents_mapping[starts[idx] : ends[idx]])
+    todo_salience = np.array(todo_salience)  # 帧长，9
+    todo_cents_mapping = np.array(todo_cents_mapping)  # 帧长，9
+
+    confidence = np.sum(todo_salience, 1)
+
+    product_sum = np.sum(todo_salience * todo_cents_mapping, 1)
+    weight_sum = np.sum(todo_salience, 1) + 1e-6  # 帧长
+    divided = product_sum / weight_sum  # 帧长
+
+    f0 = 10 * (2 ** (divided / 1200)) + 10
+    f0[vuv == False] = 0
+
+    extras = {}
+
+    smoothing_sigma = 3
+    if return_subharmonic_confidence:
+        subharmonic_path = np.clip(center_path - octave_height, 0, 359)
+        subharmonic_salience = np.zeros((hidden.shape[0], 9))
+        subharmonic_starts = np.clip(subharmonic_path - 4, 0, 359)
+        subharmonic_ends = np.clip(subharmonic_path + 5, 0, 359)
+        if subharmonic_path[0] < 0:
+            subharmonic_starts[0] = 0
+        for idx in range(hidden.shape[0]):
+            if vuv[idx] == False: # unvoiced
+                subharmonic_salience[idx] = np.zeros(9)
+            else:
+                subharmonic_salience[idx] = hidden[idx, subharmonic_starts[idx] : subharmonic_ends[idx]]
+        subharmonic_confidence = np.sum(subharmonic_salience, 1)
+        if smooth_extras:
+            subharmonic_confidence = gaussian_filter1d(subharmonic_confidence, smoothing_sigma)
+        extras['subharmonic_confidence'] = subharmonic_confidence
+
+    if return_inharmonic_confidence:
+        inharmonic_confidence = np.sum(hidden, 1) - (confidence) 
+        if smooth_extras:
+            inharmonic_confidence = gaussian_filter1d(inharmonic_confidence, smoothing_sigma)
+        extras['inharmonic_confidence'] = inharmonic_confidence
+
+    if return_confidence:
+        if smooth_extras:
+            confidence = gaussian_filter1d(confidence, smoothing_sigma)
+        extras['confidence'] = confidence
+
+    
+    if False: # return_pitch_normalized_hidden
+        num_bins = hidden.shape[1]
+        center_bin_target = num_bins // 2
+        
+        # Initialize with zeros. Unvoiced frames will remain as zero vectors.
+        normalized_hidden = np.zeros_like(hidden)
+
+        for i in range(hidden.shape[0]):
+            if vuv[i]:
+                # Calculate the circular shift needed to move the center_path bin to the target center
+                shift = center_bin_target - center_path[i]
+                normalized_hidden[i, :] = np.roll(hidden[i, :], shift)
+            else: # don't normalize unvoiced
+                normalized_hidden[i, :] = hidden[i, :]
+        
+        extras['pitch_normalized_hidden'] = normalized_hidden
+
+    extras['vuv'] = vuv
+
+    return f0, extras

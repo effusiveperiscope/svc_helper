@@ -16,7 +16,14 @@ def test_pitch():
     pitch, hidden = rmvpe_model.extract_pitch(data, return_hidden=True)
 
     print(nonzero_mean(pitch))
-    print(f0_quantilize(pitch))
+    # print(f0_quantilize(pitch))
 
     print(hidden.shape)
+
+    pitch, extras = rmvpe_model.extract_pitch2(data, 
+        return_confidence=True,
+        return_subharmonic_confidence=True,
+        return_inharmonic_confidence=True,
+        smooth_extras=True)
     
+    print(pitch.shape, extras["confidence"].shape, extras["subharmonic_confidence"].shape, extras["inharmonic_confidence"].shape)
