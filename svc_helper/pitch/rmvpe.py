@@ -700,7 +700,7 @@ def fake_bin_curve(hidden, voiced_thred = 0.05):
     vuv = maxheights >= voiced_thred
 
     if not len(maxheights[vuv]): # Completely unvoiced
-        return np.zeros((hidden.shape[0], 1))
+        return np.zeros((hidden.shape[0], 1)), vuv
 
     interpolator = interp1d(np.arange(0, hidden.shape[0])[vuv], bins[vuv],
         kind='linear', bounds_error=False, fill_value='extrapolate')
@@ -722,6 +722,9 @@ def gather_peaks(hidden,
     peak_counts = np.zeros((hidden.shape[0], 1))
 
     fake_bins, vuv = fake_bin_curve(hidden)
+
+    if vuv.sum() == 0:
+        return peak_vals, peak_counts, vuv
 
     for i, timestep in enumerate(hidden):
         peaks, properties = find_peaks(log_hidden[i], height=min_log_height, distance=distance)
@@ -752,6 +755,8 @@ def decode_f0_center_path(peak_vals, peak_counts, vuv,
     eps = 1e-9):
     T = peak_vals.shape[0]
     P = int(np.max(peak_counts).item())
+    if vuv.sum() == 0:
+        return np.zeros((T))
 
     dp_cost = np.full((T, P), np.inf)
     backptr = -np.ones((T, P), dtype=int)
@@ -842,8 +847,13 @@ def decode_f0_mass(
             todo_salience.append(np.zeros(9))
             todo_cents_mapping.append(np.zeros(9))
         else:
-            todo_salience.append(hidden[idx, starts[idx] : ends[idx]])
-            todo_cents_mapping.append(cents_mapping[starts[idx] : ends[idx]])
+            span = ends[idx] - starts[idx]
+            span_hidden = np.zeros(9)
+            span_cents = np.zeros(9)
+            span_hidden[:span] = hidden[idx, starts[idx] : ends[idx]]
+            span_cents[:span] = cents_mapping[starts[idx] : ends[idx]]
+            todo_salience.append(span_hidden)
+            todo_cents_mapping.append(span_cents)
     todo_salience = np.array(todo_salience)  # 帧长，9
     todo_cents_mapping = np.array(todo_cents_mapping)  # 帧长，9
 
@@ -870,7 +880,8 @@ def decode_f0_mass(
             if vuv[idx] == False: # unvoiced
                 subharmonic_salience[idx] = np.zeros(9)
             else:
-                subharmonic_salience[idx] = hidden[idx, subharmonic_starts[idx] : subharmonic_ends[idx]]
+                span = subharmonic_ends[idx] - subharmonic_starts[idx]
+                subharmonic_salience[idx][:span] = hidden[idx, subharmonic_starts[idx] : subharmonic_ends[idx]]
         subharmonic_confidence = np.sum(subharmonic_salience, 1)
         if smooth_extras:
             subharmonic_confidence = gaussian_filter1d(subharmonic_confidence, smoothing_sigma)
