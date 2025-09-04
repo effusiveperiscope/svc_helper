@@ -10,7 +10,7 @@ from scipy.ndimage import gaussian_filter1d
 
 rmvpe_model = RMVPEModel()
 # %%
-data, rate = librosa.load('tests/test_2_03.wav',
+data, rate = librosa.load('tests/modes.wav',
     sr=RMVPEModel.expected_sample_rate)
 pitch, hidden = rmvpe_model.extract_pitch(data, return_hidden=True)
 
@@ -35,6 +35,7 @@ def gather_peaks(hidden,
         distance = 30, 
         min_log_height = -7,
         likely_voiced_log_thred = -3,
+        ambiguity_thred = -0.1,
         octave_height = 60,
         octave_eps = 2):
     num_bins = hidden.shape[1]
@@ -50,8 +51,11 @@ def gather_peaks(hidden,
         peaks, properties = find_peaks(log_hidden[i], height=min_log_height, distance=distance)
         primary_peak = np.argmax(log_hidden[i])
 
+        max_confidence = np.max(log_hidden[i])
+        harmonically_ambiguous = max_confidence <= ambiguity_thred
+
         likely_voiced = log_hidden[i, primary_peak] >= likely_voiced_log_thred
-        if likely_voiced:
+        if likely_voiced and harmonically_ambiguous:
             # The most likely failure mode is an octave up or down
             
             # We always assume +1 octave and -1 octave are possible
@@ -62,7 +66,7 @@ def gather_peaks(hidden,
             ]
             peak_vals[i, 0:len(peaks)] = peaks
             peak_counts[i] = len(peaks)
-        else:
+        else: # collapse to a single peak
             peaks = [np.round(fake_bins[i])]
             peak_vals[i, 0:len(peaks)] = peaks
             peak_counts[i] = len(peaks)
@@ -75,7 +79,7 @@ def decode_f0_center_path(
     pmf_coef = 10, # rewards probability mass from original distribution
     # prevents collapsing to wrong octave in case of equally likely paths 
     # (i.e. no obvious octave artifacts)
-    delta_coef = 1, octave_coef = 60,
+    delta_coef = 1, octave_coef = 3,
     octave_height = 60, octave_eps = 2,
     eps = 1e-9):
     T = peak_vals.shape[0]
@@ -110,6 +114,9 @@ def decode_f0_center_path(
                 else:
                     octave_cost = 0
                 cost = node_cost + delta_cost + octave_cost
+                if t == 2261: # 2260
+                    print(p, index_to_f0(p), p_prev, index_to_f0(p_prev.astype(int)), '|',
+                     node_cost, delta_cost, octave_cost, cost)
                 if cost < best_cost:
                     best_cost = cost
                     best_prev = j
@@ -131,6 +138,8 @@ def decode_f0_center_path(
     return (path_values * vuv).astype(int)
 
 def index_to_f0(index: int):
+    if type(index) != int:
+        index = index.astype(int)
     cents_mapping = 20 * np.arange(360) + 1997.3794084376191
     f0 = 10 * (2 ** (cents_mapping[index] / 1200)) + 10
     return f0
@@ -248,19 +257,19 @@ def decode_f0_mass(
 # --- Main execution and plotting ---
 
 
-# %%
 peak_vals, peak_counts, vuv = gather_peaks(hidden)
 path = decode_f0_center_path(hidden, peak_vals, peak_counts, vuv)
 
 # peak_vals: (2447, 24)
 # hidden: (2447, 360)
-peak_viz = np.zeros(hidden.shape)
-for i in range(peak_vals.shape[0]):
-    peak_viz[i, peak_vals[i].astype(int)] = hidden[i, peak_vals[i].astype(int)]
-plt.imshow(peak_viz.T, aspect='auto', cmap='inferno', interpolation='none')
-plt.colorbar()
-plt.title('Peak Viz')
-plt.show()
+# peak_viz = np.zeros(hidden.shape)
+# for i in range(peak_vals.shape[0]):
+#     peak_viz[i, peak_vals[i].astype(int)] = 1
+#     hidden[i, peak_vals[i].astype(int)]
+# plt.imshow(peak_viz.T, aspect='auto', cmap='inferno', interpolation='none')
+# plt.colorbar()
+# plt.title('Peak Viz')
+# plt.show()
 
 # Call the function with the new flag set to True
 pitch2, extras = decode_f0_mass(path, hidden,
@@ -282,9 +291,10 @@ plt.legend()
 plt.grid(True, alpha=0.3)
 
 plt.subplot(2, 1, 2)
-plt.plot(extras['subharmonic_confidence'], label='Subharmonic Confidence')
-plt.plot(extras['confidence'], label='Confidence')
-plt.plot(extras['inharmonic_confidence'], label='Inharmonic Confidence')
+# plt.plot(extras['subharmonic_confidence'], label='Subharmonic Confidence')
+# plt.plot(extras['confidence'], label='Confidence')
+# plt.plot(extras['inharmonic_confidence'], label='Inharmonic Confidence')
+plt.plot(np.max(hidden, axis=1), label='Max Hidden State')
 plt.legend()
 plt.grid(True, alpha=0.3)
 
