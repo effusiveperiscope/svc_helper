@@ -8,7 +8,7 @@ class RMVPEModel:
         rvc_rmvpe_path = kwargs.get('rmvpe_path', hf_hub_download(
             repo_id='therealvul/svc_helper', filename='rvc_rmvpe.pt'
         ))
-        print('RVC_RMVPE_PATH:',rvc_rmvpe_path)
+        # print('RVC_RMVPE_PATH:',rvc_rmvpe_path)
         self.model = RMVPE(model_path=rvc_rmvpe_path,
             is_half=kwargs.get('is_half'), device=device,
             hop_length=kwargs.get('hop_length', 160))
@@ -625,7 +625,7 @@ class RMVPE:
         )
         hidden = self.mel2hidden(mel).squeeze(0).cpu().numpy()
         peak_vals, peak_counts, vuv = gather_peaks(hidden)
-        path = decode_f0_center_path(peak_vals, peak_counts, vuv)
+        path = decode_f0_center_path(hidden, peak_vals, peak_counts, vuv)
         pitch, extras = decode_f0_mass(path, hidden,
             return_confidence=return_confidence,
             return_subharmonic_confidence=return_subharmonic_confidence,
@@ -700,18 +700,19 @@ def fake_bin_curve(hidden, voiced_thred = 0.05):
     vuv = maxheights >= voiced_thred
 
     if not len(maxheights[vuv]): # Completely unvoiced
-        return np.zeros((hidden.shape[0], 1)), vuv
+        return np.zeros((hidden.shape[0], 1))
 
     interpolator = interp1d(np.arange(0, hidden.shape[0])[vuv], bins[vuv],
         kind='linear', bounds_error=False, fill_value='extrapolate')
     interpolated = interpolator(np.arange(0, hidden.shape[0]))
-    bins[~vuv] = interpolated[~vuv]
+    bins[~vuv] = np.clip(interpolated[~vuv], 0, hidden.shape[1] - 1)
     return bins, vuv
 
 def gather_peaks(hidden, 
         distance = 30, 
         min_log_height = -7,
         likely_voiced_log_thred = -3,
+        ambiguity_thred = -0.1,
         octave_height = 60,
         octave_eps = 2):
     num_bins = hidden.shape[1]
@@ -723,15 +724,15 @@ def gather_peaks(hidden,
 
     fake_bins, vuv = fake_bin_curve(hidden)
 
-    if vuv.sum() == 0:
-        return peak_vals, peak_counts, vuv
-
     for i, timestep in enumerate(hidden):
         peaks, properties = find_peaks(log_hidden[i], height=min_log_height, distance=distance)
         primary_peak = np.argmax(log_hidden[i])
 
+        max_confidence = np.max(log_hidden[i])
+        harmonically_ambiguous = max_confidence <= ambiguity_thred
+
         likely_voiced = log_hidden[i, primary_peak] >= likely_voiced_log_thred
-        if likely_voiced:
+        if likely_voiced and harmonically_ambiguous:
             # The most likely failure mode is an octave up or down
             
             # We always assume +1 octave and -1 octave are possible
@@ -742,32 +743,31 @@ def gather_peaks(hidden,
             ]
             peak_vals[i, 0:len(peaks)] = peaks
             peak_counts[i] = len(peaks)
-        else:
+        else: # collapse to a single peak
             peaks = [np.round(fake_bins[i])]
             peak_vals[i, 0:len(peaks)] = peaks
             peak_counts[i] = len(peaks)
 
     return peak_vals, peak_counts, vuv
 
-def decode_f0_center_path(peak_vals, peak_counts, vuv,
-    logdelta_coef = 1, octave_coef = 60,
+def decode_f0_center_path(
+    hidden,
+    peak_vals, peak_counts, vuv,
+    pmf_coef = 0, # rewards probability mass from original distribution
+    # prevents collapsing to wrong octave in case of equally likely paths 
+    # (i.e. no obvious octave artifacts)
+    delta_coef = 0.1, 
+    octave_coef = 1.0,
     octave_height = 60, octave_eps = 2,
     eps = 1e-9):
     T = peak_vals.shape[0]
     P = int(np.max(peak_counts).item())
-    if vuv.sum() == 0:
-        return np.zeros((T))
 
     dp_cost = np.full((T, P), np.inf)
     backptr = -np.ones((T, P), dtype=int)
 
     if T <= 1:
         return peak_vals
-
-    # Viterbi, but all node costs are 0.
-    # The reason we ignore probability mass here is because when the model fails
-    # it has a tendency to place a large amount of probability on the wrong
-    # octave (but the right chrome)
 
     # Base
     dp_cost[0, :] = 0
@@ -777,19 +777,24 @@ def decode_f0_center_path(peak_vals, peak_counts, vuv,
         this_peak_vals = peak_vals[t][0:int(peak_counts[t][0])]
         for i,p in enumerate(this_peak_vals):
             p = int(p)
-            node_cost = 0
+            node_cost = -np.log(hidden[t, p] * pmf_coef + eps)
 
             best_cost = np.inf
             best_prev = -1
 
             prev_peak_vals = peak_vals[t - 1][0:int(peak_counts[t - 1][0])]
             for j,p_prev in enumerate(prev_peak_vals):
-                delta_cost = np.abs(p - p_prev) * logdelta_coef
+                if not vuv[i] or not vuv[j]: 
+                    # it costs nothing to transition in/out of unvoiced region
+                    cost = 0
+
+                delta_cost = np.abs(p - p_prev) * delta_coef
                 if (np.abs(np.abs(p - p_prev) - octave_height)) <= octave_eps:
                     octave_cost = octave_coef
                 else:
                     octave_cost = 0
-                cost = node_cost + delta_cost + octave_cost
+                path_cost = dp_cost[t - 1, j]
+                cost = path_cost + node_cost + delta_cost + octave_cost
                 if cost < best_cost:
                     best_cost = cost
                     best_prev = j
@@ -806,6 +811,13 @@ def decode_f0_center_path(peak_vals, peak_counts, vuv,
     path_values.reverse()
     return (path_values * vuv).astype(int)
 
+def index_to_f0(index: int):
+    if type(index) != int:
+        index = index.astype(int)
+    cents_mapping = 20 * np.arange(360) + 1997.3794084376191
+    f0 = 10 * (2 ** (cents_mapping[index] / 1200)) + 10
+    return f0
+
 def decode_f0_mass(
     center_path : np.ndarray, 
     hidden : np.ndarray,
@@ -818,7 +830,7 @@ def decode_f0_mass(
     Decodes F0 and optionally extracts features from hidden states based on a center path.
 
     Args:
-        center_path (np.ndarray): The Viterbi-decoded path of center bins.
+        center_path (np.ndarray): The Viterbi- path of center bins.
         hidden (np.ndarray): The RMVPE hidden states (salience map).
         octave_height (int): The number of bins in an octave.
         return_confidence (bool): Whether to return the salience around the F0.
@@ -838,7 +850,8 @@ def decode_f0_mass(
     todo_cents_mapping = []
 
     vuv = center_path != 0
-    center_path = np.clip(center_path - 4, 0, 359)
+    hidden = np.pad(hidden, ((0, 0), (4, 4)))
+    center_path = np.clip(center_path + 4, 0, 359)
     starts = np.clip(center_path - 4, 0, 359)
     ends = np.clip(center_path + 5, 0, 359)
 

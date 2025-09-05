@@ -1,4 +1,3 @@
-
 # %%
 from svc_helper.pitch.rmvpe import RMVPEModel
 import matplotlib.pyplot as plt
@@ -11,7 +10,7 @@ from scipy.ndimage import gaussian_filter1d
 rmvpe_model = RMVPEModel()
 # %%
 data, rate = librosa.load(
-    'tests/HARD_speech.flac',
+    'tests/test_speech2.flac',
     sr=RMVPEModel.expected_sample_rate)
 pitch, hidden = rmvpe_model.extract_pitch(data, return_hidden=True)
 
@@ -29,7 +28,7 @@ def fake_bin_curve(hidden, voiced_thred = 0.05):
     interpolator = interp1d(np.arange(0, hidden.shape[0])[vuv], bins[vuv],
         kind='linear', bounds_error=False, fill_value='extrapolate')
     interpolated = interpolator(np.arange(0, hidden.shape[0]))
-    bins[~vuv] = interpolated[~vuv]
+    bins[~vuv] = np.clip(interpolated[~vuv], 0, hidden.shape[1] - 1)
     return bins, vuv
 
 def gather_peaks(hidden, 
@@ -62,8 +61,8 @@ def gather_peaks(hidden,
             # We always assume +1 octave and -1 octave are possible
             peaks = [
                 primary_peak,
-                primary_peak + octave_height,
-                primary_peak - octave_height
+                np.clip(primary_peak + octave_height, 0, num_bins - 1),
+                np.clip(primary_peak - octave_height, 0, num_bins - 1),
             ]
             peak_vals[i, 0:len(peaks)] = peaks
             peak_counts[i] = len(peaks)
@@ -102,8 +101,6 @@ def decode_f0_center_path(
         for i,p in enumerate(this_peak_vals):
             p = int(p)
             node_cost = -np.log(hidden[t, p] * pmf_coef + eps)
-            # if t == 700:
-            #     print(p, index_to_f0(p), hidden[t, p], node_cost)
 
             best_cost = np.inf
             best_prev = -1
@@ -121,16 +118,9 @@ def decode_f0_center_path(
                     octave_cost = 0
                 path_cost = dp_cost[t - 1, j]
                 cost = path_cost + node_cost + delta_cost + octave_cost
-                if t == 125: 
-                    print(p, index_to_f0(p), p_prev, index_to_f0(p_prev.astype(int)), '|',
-                     node_cost, delta_cost, octave_cost, cost)
                 if cost < best_cost:
                     best_cost = cost
                     best_prev = j
-
-            # if t % 100 == 0:
-            #     print(t, prev_peak_vals[best_prev].astype(int), 
-            #         index_to_f0(prev_peak_vals[best_prev].astype(int)), best_cost)
 
             dp_cost[t, i] = best_cost
             backptr[t, i] = best_prev
@@ -186,7 +176,8 @@ def decode_f0_mass(
     todo_cents_mapping = []
 
     vuv = center_path != 0
-    center_path = np.clip(center_path - 4, 0, 359)
+    hidden = np.pad(hidden, ((0, 0), (4, 4)))
+    center_path = np.clip(center_path + 4, 0, 359)
     starts = np.clip(center_path - 4, 0, 359)
     ends = np.clip(center_path + 5, 0, 359)
 
@@ -200,18 +191,17 @@ def decode_f0_mass(
     todo_salience = np.array(todo_salience)  # 帧长，9
     todo_cents_mapping = np.array(todo_cents_mapping)  # 帧长，9
 
-    confidence = np.sum(todo_salience, 1)
-
     product_sum = np.sum(todo_salience * todo_cents_mapping, 1)
-    weight_sum = np.sum(todo_salience, 1) + 1e-6  # 帧长
+    weight_sum = np.sum(todo_salience, 1) + 1e-6 # 帧长
     divided = product_sum / weight_sum  # 帧长
 
-    f0 = 10 * (2 ** (divided / 1200)) + 10
+    f0 = 10 * (2 ** (divided / 1200))
     f0[vuv == False] = 0
 
     extras = {}
 
     smoothing_sigma = 3
+    confidence = np.sum(todo_salience, 1)
     if return_subharmonic_confidence:
         subharmonic_path = np.clip(center_path - octave_height, 0, 359)
         subharmonic_salience = np.zeros((hidden.shape[0], 9))
@@ -267,6 +257,14 @@ def decode_f0_mass(
 peak_vals, peak_counts, vuv = gather_peaks(hidden)
 path = decode_f0_center_path(hidden, peak_vals, peak_counts, vuv)
 
+#path_vals = hidden[np.arange(hidden.shape[0]), path]
+greedy_centers = np.argmax(hidden, 1)
+plt.plot(path * vuv)
+plt.plot(greedy_centers * vuv) 
+plt.show()
+
+# %%
+
 # peak_vals: (2447, 24)
 # hidden: (2447, 360)
 # peak_viz = np.zeros(hidden.shape)
@@ -287,7 +285,6 @@ pitch2, extras = decode_f0_mass(path, hidden,
     smooth_extras=True)
 
 # Plot 1: Original vs. Refined Pitch
-plt.figure(figsize = (12, 6), dpi=150)
 
 plt.subplot(2, 1, 1)
 plt.plot(pitch2, label='Refined Pitch (pitch2)')
@@ -333,4 +330,5 @@ plt.grid(True, alpha=0.3)
 
 plt.tight_layout()
 plt.show()
+
 # %%
