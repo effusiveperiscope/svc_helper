@@ -717,12 +717,14 @@ def gather_peaks(hidden,
         octave_eps = 2):
     num_bins = hidden.shape[1]
     # Use log scale to find peaks
-    log_hidden = np.log(hidden + 1e-9)
+    log_hidden = np.log(np.clip(hidden, 1e-9, None))
 
     peak_vals = np.zeros((hidden.shape[0], num_bins * 2 // distance))
     peak_counts = np.zeros((hidden.shape[0], 1))
 
     fake_bins, vuv = fake_bin_curve(hidden)
+    if vuv.sum() == 0:
+        return peak_vals, peak_counts, vuv
 
     for i, timestep in enumerate(hidden):
         peaks, properties = find_peaks(log_hidden[i], height=min_log_height, distance=distance)
@@ -766,8 +768,8 @@ def decode_f0_center_path(
     dp_cost = np.full((T, P), np.inf)
     backptr = -np.ones((T, P), dtype=int)
 
-    if T <= 1:
-        return peak_vals
+    if vuv.sum() <= 1:
+        return peak_vals[:, 0]
 
     # Base
     dp_cost[0, :] = 0
@@ -852,8 +854,8 @@ def decode_f0_mass(
     vuv = center_path != 0
     hidden = np.pad(hidden, ((0, 0), (4, 4)))
     center_path = np.clip(center_path + 4, 0, 359)
-    starts = np.clip(center_path - 4, 0, 359)
-    ends = np.clip(center_path + 5, 0, 359)
+    starts = np.clip(center_path - 4, 0, 359).astype(int)
+    ends = np.clip(center_path + 5, 0, 359).astype(int)
 
     for idx in range(hidden.shape[0]):
         if vuv[idx] == False: # unvoiced
@@ -885,8 +887,8 @@ def decode_f0_mass(
     if return_subharmonic_confidence:
         subharmonic_path = np.clip(center_path - octave_height, 0, 359)
         subharmonic_salience = np.zeros((hidden.shape[0], 9))
-        subharmonic_starts = np.clip(subharmonic_path - 4, 0, 359)
-        subharmonic_ends = np.clip(subharmonic_path + 5, 0, 359)
+        subharmonic_starts = np.clip(subharmonic_path - 4, 0, 359).astype(int)
+        subharmonic_ends = np.clip(subharmonic_path + 5, 0, 359).astype(int)
         if subharmonic_path[0] < 0:
             subharmonic_starts[0] = 0
         for idx in range(hidden.shape[0]):

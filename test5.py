@@ -40,7 +40,7 @@ def gather_peaks(hidden,
         octave_eps = 2):
     num_bins = hidden.shape[1]
     # Use log scale to find peaks
-    log_hidden = np.log(hidden)
+    log_hidden = np.log(np.clip(hidden, 1e-9, None))
 
     peak_vals = np.zeros((hidden.shape[0], num_bins * 2 // distance))
     peak_counts = np.zeros((hidden.shape[0], 1))
