@@ -10,7 +10,8 @@ from scipy.ndimage import gaussian_filter1d
 
 rmvpe_model = RMVPEModel()
 # %%
-data, rate = librosa.load('tests/modes.wav',
+data, rate = librosa.load(
+    'tests/HARD_speech.flac',
     sr=RMVPEModel.expected_sample_rate)
 pitch, hidden = rmvpe_model.extract_pitch(data, return_hidden=True)
 
@@ -76,10 +77,11 @@ def gather_peaks(hidden,
 def decode_f0_center_path(
     hidden,
     peak_vals, peak_counts, vuv,
-    pmf_coef = 10, # rewards probability mass from original distribution
+    pmf_coef = 0, # rewards probability mass from original distribution
     # prevents collapsing to wrong octave in case of equally likely paths 
     # (i.e. no obvious octave artifacts)
-    delta_coef = 1, octave_coef = 3,
+    delta_coef = 0.1, 
+    octave_coef = 1.0,
     octave_height = 60, octave_eps = 2,
     eps = 1e-9):
     T = peak_vals.shape[0]
@@ -108,13 +110,18 @@ def decode_f0_center_path(
 
             prev_peak_vals = peak_vals[t - 1][0:int(peak_counts[t - 1][0])]
             for j,p_prev in enumerate(prev_peak_vals):
+                if not vuv[i] or not vuv[j]: 
+                    # it costs nothing to transition in/out of unvoiced region
+                    cost = 0
+
                 delta_cost = np.abs(p - p_prev) * delta_coef
                 if (np.abs(np.abs(p - p_prev) - octave_height)) <= octave_eps:
                     octave_cost = octave_coef
                 else:
                     octave_cost = 0
-                cost = node_cost + delta_cost + octave_cost
-                if t == 2261: # 2260
+                path_cost = dp_cost[t - 1, j]
+                cost = path_cost + node_cost + delta_cost + octave_cost
+                if t == 125: 
                     print(p, index_to_f0(p), p_prev, index_to_f0(p_prev.astype(int)), '|',
                      node_cost, delta_cost, octave_cost, cost)
                 if cost < best_cost:
