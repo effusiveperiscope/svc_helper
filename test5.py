@@ -10,7 +10,7 @@ from scipy.ndimage import gaussian_filter1d
 rmvpe_model = RMVPEModel()
 # %%
 data, rate = librosa.load(
-    'tests/test_speech2.flac',
+    'tests/modes.wav',
     sr=RMVPEModel.expected_sample_rate)
 pitch, hidden = rmvpe_model.extract_pitch(data, return_hidden=True)
 

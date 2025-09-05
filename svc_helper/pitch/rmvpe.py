@@ -738,8 +738,8 @@ def gather_peaks(hidden,
             # We always assume +1 octave and -1 octave are possible
             peaks = [
                 primary_peak,
-                primary_peak + octave_height,
-                primary_peak - octave_height
+                np.clip(primary_peak + octave_height, 0, num_bins - 1),
+                np.clip(primary_peak - octave_height, 0, num_bins - 1),
             ]
             peak_vals[i, 0:len(peaks)] = peaks
             peak_counts[i] = len(peaks)
