@@ -700,7 +700,7 @@ def fake_bin_curve(hidden, voiced_thred = 0.05):
     vuv = maxheights >= voiced_thred
 
     if not len(maxheights[vuv]): # Completely unvoiced
-        return np.zeros((hidden.shape[0], 1))
+        return np.zeros((hidden.shape[0], 1)), vuv
 
     interpolator = interp1d(np.arange(0, hidden.shape[0])[vuv], bins[vuv],
         kind='linear', bounds_error=False, fill_value='extrapolate')
@@ -717,7 +717,7 @@ def gather_peaks(hidden,
         octave_eps = 2):
     num_bins = hidden.shape[1]
     # Use log scale to find peaks
-    log_hidden = np.log(hidden)
+    log_hidden = np.log(hidden + 1e-9)
 
     peak_vals = np.zeros((hidden.shape[0], num_bins * 2 // distance))
     peak_counts = np.zeros((hidden.shape[0], 1))
