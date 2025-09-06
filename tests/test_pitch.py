@@ -20,10 +20,11 @@ def test_pitch():
 
     print(hidden.shape)
 
-    pitch, extras = rmvpe_model.extract_pitch2(data, 
+    pitch2, extras = rmvpe_model.extract_pitch2(data, 
         return_confidence=True,
         return_subharmonic_confidence=True,
         return_inharmonic_confidence=True,
         smooth_extras=True)
     
-    print(pitch.shape, extras["confidence"].shape, extras["subharmonic_confidence"].shape, extras["inharmonic_confidence"].shape)
+    print(pitch2.shape, extras["confidence"].shape, extras["subharmonic_confidence"].shape, extras["inharmonic_confidence"].shape)
+    print(pitch2 - pitch)

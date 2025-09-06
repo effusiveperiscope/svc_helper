@@ -878,7 +878,7 @@ def decode_f0_mass(
     weight_sum = np.sum(todo_salience, 1) + 1e-6  # 帧长
     divided = product_sum / weight_sum  # 帧长
 
-    f0 = 10 * (2 ** (divided / 1200)) + 10
+    f0 = 10 * (2 ** (divided / 1200)) 
     f0[vuv == False] = 0
 
     extras = {}

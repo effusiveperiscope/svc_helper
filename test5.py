@@ -10,7 +10,7 @@ from scipy.ndimage import gaussian_filter1d
 rmvpe_model = RMVPEModel()
 # %%
 data, rate = librosa.load(
-    'tests/modes.wav',
+    'tests/test_2_03.wav',
     sr=RMVPEModel.expected_sample_rate)
 pitch, hidden = rmvpe_model.extract_pitch(data, return_hidden=True)
 
@@ -287,17 +287,19 @@ pitch2, extras = decode_f0_mass(path, hidden,
 # Plot 1: Original vs. Refined Pitch
 
 plt.subplot(2, 1, 1)
-plt.plot(pitch2, label='Refined Pitch (pitch2)')
-plt.plot(pitch, label='Original RMVPE Pitch', alpha=0.7)
-plt.title('Original vs. Refined F0')
-plt.ylabel('Frequency (Hz)')
+# plt.plot(pitch2, label='Refined Pitch (pitch2)')
+# plt.plot(pitch, label='Original RMVPE Pitch', alpha=0.7)
+# plt.title('Original vs. Refined F0')
+# plt.ylabel('Frequency (Hz)')
+plt.plot(pitch2 - pitch, label='Refined - Original')
 plt.legend()
 plt.grid(True, alpha=0.3)
+print(pitch2 - pitch)
 
 plt.subplot(2, 1, 2)
-# plt.plot(extras['subharmonic_confidence'], label='Subharmonic Confidence')
-# plt.plot(extras['confidence'], label='Confidence')
-# plt.plot(extras['inharmonic_confidence'], label='Inharmonic Confidence')
+plt.plot(extras['subharmonic_confidence'], label='Subharmonic Confidence')
+plt.plot(extras['confidence'], label='Confidence')
+plt.plot(extras['inharmonic_confidence'], label='Inharmonic Confidence')
 plt.plot(np.max(hidden, axis=1), label='Max Hidden State')
 plt.legend()
 plt.grid(True, alpha=0.3)
