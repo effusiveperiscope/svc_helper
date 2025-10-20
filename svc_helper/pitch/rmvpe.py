@@ -761,7 +761,7 @@ def decode_f0_center_path(
     delta_coef = 0.1, 
     octave_coef = 1.0,
     octave_height = 60, octave_eps = 2,
-    eps = 1e-9):
+    eps = 1e-5):
     T = peak_vals.shape[0]
     P = int(np.max(peak_counts).item())
 
