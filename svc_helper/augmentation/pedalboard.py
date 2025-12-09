@@ -16,8 +16,11 @@ class PedalboardRandomAugmentor:
             'clipping': 0.05,
             'comp_gentle': 0.2,
             'comp_hard': 0.2,
+            'chorus': 0.1,
             'quiet': 0.2,
             'limit': 0.1,
+            'lowpass': 0.1,
+            'highpass': 0.1,
             'resample_8k': 0.05,
             'resample_16k': 0.05,
             'resample_22k': 0.05,
@@ -36,6 +39,9 @@ class PedalboardRandomAugmentor:
             threshold_db=-6.0, ratio=1.5, attack_ms=60.0)
         self.comp_hard = pedalboard.Compressor(
             threshold_db=-24.0, ratio=3)
+        self.chorus = pedalboard.Chorus()
+        self.lowpass = pedalboard.LowpassFilter(cutoff_frequency_hz=1000.0)
+        self.highpass = pedalboard.HighpassFilter(cutoff_frequency_hz=1000.0)
         self.limit = pedalboard.Limiter(threshold_db=-6.0)
         self.quiet = pedalboard.Gain(gain_db=-6.0)
         self.resample_8k = pedalboard.Resample(target_sample_rate=8000.0,
@@ -57,7 +63,10 @@ class PedalboardRandomAugmentor:
         self.clipper.reset()
         self.comp_gentle.reset()
         self.comp_hard.reset()
+        self.chorus.reset()
         self.limit.reset()
+        self.lowpass.reset()
+        self.highpass.reset()
         self.delay_short.reset()
         self.reverb_short.reset()
         self.reverb_long.reset()
@@ -79,8 +88,15 @@ class PedalboardRandomAugmentor:
             audio = self.comp_gentle.process(audio, sr)
         if _randp(self.probs['comp_hard']):
             audio = self.comp_hard.process(audio, sr)
+        if _randp(self.probs['chorus']):
+            audio = self.chorus.process(audio, sr)
         if _randp(self.probs['limit']):
             audio = self.limit.process(audio, sr)
+        
+        if _randp(self.probs['lowpass']):
+            audio = self.lowpass.process(audio, sr)
+        if _randp(self.probs['highpass']):
+            audio = self.highpass.process(audio, sr)
 
         if _randp(self.probs['resample_8k']):
             audio = self.resample_8k.process(audio, sr)
