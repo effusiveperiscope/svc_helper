@@ -1,4 +1,4 @@
-from PyQt5.QtWidgets import QWidget, QVBoxLayout, QLabel
+from PyQt5.QtWidgets import QWidget, QVBoxLayout, QLabel, QSizePolicy
 from ..widgets.file_button import FileButton
 from ..widgets.audio_preview import AudioPreviewWidget
 
@@ -14,6 +14,7 @@ class AudioFileInput(QWidget):
         self._files = []
         self.label = label
         self.files_label = QLabel()
+        self.files_label.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Fixed)
         self._updateLabel()
         self.layout.addWidget(self.files_label)
 
