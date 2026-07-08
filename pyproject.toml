@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "ppp_svc_helper"
-version = "0.3.14"
+version = "0.3.15"
 authors = [
   { name="therealvul", email="wowitsvul@gmail.com" },
 ]
