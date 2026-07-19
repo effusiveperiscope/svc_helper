@@ -699,7 +699,7 @@ def fake_bin_curve(hidden, voiced_thred = 0.05):
 
     vuv = maxheights >= voiced_thred
 
-    if not len(maxheights[vuv]): # Completely unvoiced
+    if len(maxheights[vuv]) <= 1: # Completely unvoiced or uninterpolable
         return np.zeros((hidden.shape[0], 1)), vuv
 
     interpolator = interp1d(np.arange(0, hidden.shape[0])[vuv], bins[vuv],
