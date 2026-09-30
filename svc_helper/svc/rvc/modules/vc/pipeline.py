@@ -14,7 +14,6 @@ import librosa
 import soundfile as sf
 import numpy as np
 import parselmouth
-import pyworld
 import torch
 import torch.nn.functional as F
 import torchcrepe
@@ -30,6 +29,7 @@ input_audio_path2wav = {}
 
 @lru_cache
 def cache_harvest_f0(input_audio_path, fs, f0max, f0min, frame_period):
+    import pyworld
     audio = input_audio_path2wav[input_audio_path]
     f0, t = pyworld.harvest(
         audio,
